@@ -6,14 +6,15 @@
 // we are using this format, to allow BLE to transmit and control the Bots and devices
 // json and string are cumbersome for this functionality
 // I am planning for LORA and satellite transmission as well.
-// Client Side will hold the logic for 8 bit or 16 bit or 32 bit arch
-// this can be done with a simple case login on the encoder on the client side
+// overrun 8 bit data soon, using 16 bit for all data
+
 #include <HardwareSerial.h>
 
 enum CmdEnum {
   CmdEnum_ignore,
   CmdEnum_move,
   CmdEnum_servo,
+  CmdEnum_stepper,
   CmdEnum_led,
   CmdEnum_led_strip,
 };
@@ -31,6 +32,8 @@ enum SubCmdEnum {
   SubCmdEnum_servo_angle,
   SubCmdEnum_servo_return,
   SubCmdEnum_servo_max,
+
+  SubCmdEnum_stepper_angle,
 
   SubCmdEnum_led_on,
   SubCmdEnum_led_off,
@@ -55,6 +58,7 @@ typedef struct {
   int value3;
 } IotCommand;
 
+
 // Decoder function to parse raw uint8_t buffer into a Command struct
 void decodeCommand(const uint8_t* data, IotCommand* cmd) {
   
@@ -67,25 +71,31 @@ void decodeCommand(const uint8_t* data, IotCommand* cmd) {
     return;
   }
   
-  // Decode enums and integer values from the incoming byte array
-  cmd->cmd = static_cast<CmdEnum>( data[0] );
-  cmd->subcmd = static_cast<SubCmdEnum>( data[1] );
-
   // Assuming 2 bytes per int, decode identifier and values (big-endian or little-endian as needed)
+  // Decode enums and integer values from the incoming byte array
+  // data[0] is LSB, data[1] is MSB
+  cmd->cmd = static_cast<CmdEnum>( (data[1] << 8) | data[0] );
+  cmd->subcmd = static_cast<SubCmdEnum>( (data[3] << 8) | data[2]  );
+
+  // Decode 16-bit little-endian values from pairs of bytes
+  cmd->identifier = (data[5] << 8) | data[4]; 
+  cmd->value1 = (data[7] << 8) | data[6];
+  cmd->value2 = (data[9] << 8) | data[8];
+  cmd->value3 = (data[11] << 8) | data[10]; 
+
   // Here assuming little-endian 16-bit ints, adjust if different
-  cmd->identifier = data[2];
-  cmd->value1 = data[3];
-  cmd->value2 = data[4];
-  Serial.printf("Last but one line of decodeCommand \n");
-  cmd->value3 = data[5];
+
   Serial.printf("Last line of decodeCommand %d \n", cmd->value3);
+
 }
+
 
 void debugIotCommand(IotCommand* cmd) {
   if (cmd == nullptr) return; 
 
   Serial.printf("Cmd: %5d, Sub: %3d, Identifier: %3d Val1: %3d, Val2: %3d, Val3: %3d\n",
                 cmd->cmd, cmd->subcmd, cmd->identifier, cmd->value1, cmd->value2, cmd->value3);
+
 }
 
 #endif // IOT_CMD_H
