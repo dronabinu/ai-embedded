@@ -6,6 +6,7 @@
 #include <HardwareSerial.h>
 #include <iotCmd.h>
 #include "iotActuators.h"
+ 
 
 #define SERVICE_UUID           "6e400001-b5a3-f393-e0a9-e50e24dcca9e" // UART service UUID
 #define CHARACTERISTIC_UUID_RX "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -17,7 +18,6 @@ BLECharacteristic *pTxCharacteristic;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 uint8_t txValue = 0;
-
 
 
 class MyServerCallbacks : public BLEServerCallbacks {
@@ -48,7 +48,12 @@ class MyCallbacks : public BLECharacteristicCallbacks {
       controlpadWithSpeed(&cmd);
     } else if (cmd.cmd == CmdEnum_led) {
       controlLed(cmd.identifier, cmd.value1);
-    }
+    } else if (cmd.cmd == CmdEnum_led) {
+      controlLed(cmd.identifier, cmd.value1);
+    } if (cmd.cmd == CmdEnum_stepper) {
+      // handle servo
+      controlStepper(cmd.identifier, cmd.value1);
+    } 
     
   }
 };
@@ -60,6 +65,9 @@ void setup() {
   Serial.println("Setup Begin...");
 
   configPins();
+
+
+  myStepper.setSpeed(15); // speed in RPM
 
   // Create the BLE Device
   BLEDevice::init("Brain Robot");
@@ -95,6 +103,18 @@ void setup() {
 
 
 void loop() {
+
+  if (Serial.available() > 0) {
+
+    String input = Serial.readStringUntil('\n');
+    int angle = input.toInt();
+
+    if (angle >= 0 && angle <= 360) {
+      controlStepper(1, angle);
+    } else {
+      Serial.println("Invalid angle. Please enter 0-360.");
+    }
+  }
 
   if (deviceConnected) {
     // Serial.print("Notifying Value: ");

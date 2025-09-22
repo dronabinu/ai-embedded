@@ -2,17 +2,31 @@
 #include <HardwareSerial.h>
 #include <CytronMotorDriver.h>
 #include <iotCmd.h>
+#include <Stepper.h>
 
 #define LEFT_FORWARD_PIN    19  // Built-in LED is usually at GPIO2
 #define LEFT_BACKWARD_PIN   18  // Built-in LED is usually at GPIO2
 #define RIGHT_FORWARD_PIN    5  // Built-in LED is usually at GPIO2
 #define RIGHT_BACKWARD_PIN   17  // Built-in LED is usually at GPIO2
 
+// Define stepper motor control pins
+#define IN1 19
+#define IN2 18
+#define IN3 5
+#define IN4 17
+
 #define RGB_PIN 2  // Built-in LED is usually at GPIO2
 
 // Configure the motor driver.
 CytronMD leftMotor(PWM_PWM, LEFT_FORWARD_PIN, LEFT_BACKWARD_PIN);   // PWM 1A = Pin 3, PWM 1B = Pin 9.
 CytronMD rightMotor(PWM_PWM, RIGHT_FORWARD_PIN, RIGHT_BACKWARD_PIN); // PWM 2A = Pin 10, PWM 2B = Pin 11.
+
+
+const int stepsPerRevolution = 2048; // for 28BYJ-48
+// need better way to resolve pin conflicts #TODO binu
+Stepper myStepper(stepsPerRevolution, IN1, IN3, IN2, IN4);
+int currentStep = 0; // track current step position
+
 
 // when we started, we had a different UI command flow to trigger speed. Now speed and movement is via same IotCmd object
 // will be deprecated
@@ -27,6 +41,8 @@ const int servoPins[servoCount] = {27, 32, 33}; // servo pins
 
 // Create Servo objects
 Servo servos[servoCount];
+
+
 
 // Alter the state of the onboard led
 // To be used when there is a command sent on bluetooth
@@ -126,4 +142,17 @@ void controlLed(int ledPin, int value) {
 
   Serial.printf("Setting Led Pin %d, value %d \n", ledPin, value);
   digitalWrite(ledPin, value);
+}
+
+void controlStepper(int servoNumber, int angle) {
+
+  int targetStep = (angle * stepsPerRevolution) / 360;
+  int stepToMove = targetStep - currentStep;
+  myStepper.step(stepToMove); // move motor by calculated steps
+  currentStep = targetStep;
+  
+  
+  Serial.print("Moved stepper to angle: ");
+  Serial.println(angle);
+
 }
