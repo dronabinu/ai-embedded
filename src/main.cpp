@@ -51,8 +51,9 @@ class MyCallbacks : public BLECharacteristicCallbacks {
     } else if (cmd.cmd == CmdEnum_led) {
       controlLed(cmd.identifier, cmd.value1);
     } if (cmd.cmd == CmdEnum_stepper) {
-      // handle servo
-      controlStepper(cmd.identifier, cmd.value1);
+      // handle stepper
+      // controlStepper(cmd.identifier, cmd.value1);
+      controlNemaStepper(cmd.identifier, cmd.value1);
     } 
     
   }
@@ -98,19 +99,20 @@ void setup() {
   Serial.println("Waiting a client connection to notify...");
 
   Serial.println("Setup Done...");
-
+  Serial.println("Listening for serial Input...");
 }
 
 
 void loop() {
 
   if (Serial.available() > 0) {
-
+   
     String input = Serial.readStringUntil('\n');
+    Serial.println("Listening for serial Input...");
     int angle = input.toInt();
 
     if (angle >= 0 && angle <= 360) {
-      controlStepper(1, angle);
+      controlNemaStepper(1, angle);
     } else {
       Serial.println("Invalid angle. Please enter 0-360.");
     }
@@ -137,5 +139,7 @@ void loop() {
     // do stuff here on connecting
     oldDeviceConnected = true;
   }
+
+  runActuatorLoop();
 
 }
