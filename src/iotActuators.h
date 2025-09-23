@@ -3,6 +3,7 @@
 #include <CytronMotorDriver.h>
 #include <iotCmd.h>
 #include <Stepper.h>
+#include <AccelStepper.h>
 
 #define LEFT_FORWARD_PIN    19  // Built-in LED is usually at GPIO2
 #define LEFT_BACKWARD_PIN   18  // Built-in LED is usually at GPIO2
@@ -15,6 +16,19 @@
 #define IN3 5
 #define IN4 17
 
+// NEMA STEPPER WITH TB6600 (3PIN, 3V Enable)
+
+#define TB6600_STEP_PIN 5
+#define TB6600_DIR_PIN 17
+#define TB6600_ENABLE_PIN 16
+
+// Define a stepper motor 1 for arduino 
+// TB6600_STEP_PIN Digital 5 (CLK), direction Digital TB6600_DIR_PIN 17 (CW), 
+AccelStepper nema_stepper(1, TB6600_STEP_PIN, TB6600_DIR_PIN);
+
+const int nema_stepsPerRevolution = 1600; // Full steps per revolution of your motor (e.g., 200 for 1.8 degree stepper)
+long nema_currentStep = 0;
+
 #define RGB_PIN 2  // Built-in LED is usually at GPIO2
 
 // Configure the motor driver.
@@ -24,7 +38,7 @@ CytronMD rightMotor(PWM_PWM, RIGHT_FORWARD_PIN, RIGHT_BACKWARD_PIN); // PWM 2A =
 
 const int stepsPerRevolution = 2048; // for 28BYJ-48
 // need better way to resolve pin conflicts #TODO binu
-Stepper myStepper(stepsPerRevolution, IN1, IN3, IN2, IN4);
+Stepper myStepper(stepsPerRevolution, IN1, IN3, IN2, IN4); // 28byj stepper
 int currentStep = 0; // track current step position
 
 
@@ -69,6 +83,11 @@ void configPins() {
       Serial.printf("Servo %d up on pin %d \n", i, servoPins[i]);
     }
   }
+
+  // TODO BINU, make this dynamic, later
+  // nema setup
+  nema_stepper.setMaxSpeed(1000);//1100
+  nema_stepper.setAcceleration(1100);
 
 }
 
@@ -155,4 +174,29 @@ void controlStepper(int servoNumber, int angle) {
   Serial.print("Moved stepper to angle: ");
   Serial.println(angle);
 
+}
+
+void controlNemaStepper(int servoNumber, int angle) {
+
+  // Clamp angle between 0 and 360
+  if (angle > 360) angle = 360;
+  if (angle < 0) angle = 0;
+
+  int targetStep = (angle * nema_stepsPerRevolution) / 360;
+  int stepToMove = targetStep - nema_currentStep;
+  nema_stepper.move(stepToMove); // move motor by calculated steps
+  nema_currentStep = targetStep;
+  
+  
+  Serial.print("Moved nema stepper to angle: ");
+  Serial.println(angle);
+
+}
+
+// run any functions of motors, servo, stepper, which has to be looped here
+void runActuatorLoop() {
+  // Run the stepper until the target position is reached
+  if (nema_stepper.distanceToGo() != 0) {
+    nema_stepper.run();
+  }
 }
