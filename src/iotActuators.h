@@ -18,9 +18,11 @@
 
 // NEMA STEPPER WITH TB6600 (3PIN, 3V Enable)
 
-#define TB6600_STEP_PIN 5
-#define TB6600_DIR_PIN 17
-#define TB6600_ENABLE_PIN 16
+#define TB6600_STEP_PIN 33
+#define TB6600_DIR_PIN 32
+// #define TB6600_ENABLE_PIN 16
+
+bool NEMA_ACTIVE = false;
 
 // Define a stepper motor 1 for arduino 
 // TB6600_STEP_PIN Digital 5 (CLK), direction Digital TB6600_DIR_PIN 17 (CW), 
@@ -51,7 +53,7 @@ int g_max_pwm = 250;
 const int servoCount = 3;
 
 // Define servo pins
-const int servoPins[servoCount] = {27, 32, 33}; // servo pins
+const int servoPins[servoCount] = {27, 26, 27}; // servo pins
 
 // Create Servo objects
 Servo servos[servoCount];
@@ -75,7 +77,7 @@ void configPins() {
   pinMode(RIGHT_FORWARD_PIN, OUTPUT); 
   pinMode(RIGHT_BACKWARD_PIN, OUTPUT); 
 
-    // Attach each servo to its pin
+  // Attach each servo to its pin
   for (int i = 0; i < servoCount; i++) {
     if (!servos[i].attach(servoPins[i])) {
       Serial.printf("Failed to attach servo %d at pin %d \n", i, servoPins[i]);
@@ -178,18 +180,26 @@ void controlStepper(int servoNumber, int angle) {
 
 void controlNemaStepper(int servoNumber, int angle) {
 
+
+
   // Clamp angle between 0 and 360
   if (angle > 360) angle = 360;
   if (angle < 0) angle = 0;
 
   int targetStep = (angle * nema_stepsPerRevolution) / 360;
-  int stepToMove = targetStep - nema_currentStep;
+
+  int currentStep = nema_stepper.currentPosition();
+
+  if (NEMA_ACTIVE) {
+    Serial.printf("Old run active, interrupt, move new %d \n", angle);
+    // return;
+  }
+
+  int stepToMove = targetStep - currentStep;
   nema_stepper.move(stepToMove); // move motor by calculated steps
   nema_currentStep = targetStep;
   
-  
-  Serial.print("Moved nema stepper to angle: ");
-  Serial.println(angle);
+  Serial.printf("Moved nema step: %d, angle %d \n", currentStep, angle);
 
 }
 
@@ -197,6 +207,10 @@ void controlNemaStepper(int servoNumber, int angle) {
 void runActuatorLoop() {
   // Run the stepper until the target position is reached
   if (nema_stepper.distanceToGo() != 0) {
+    NEMA_ACTIVE = true;
     nema_stepper.run();
+    
+  } else {
+    NEMA_ACTIVE = false;
   }
 }
