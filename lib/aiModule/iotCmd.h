@@ -85,7 +85,7 @@ void decodeCommand(const uint8_t* data, IotCommand* cmd) {
 
   // Here assuming little-endian 16-bit ints, adjust if different
 
-  Serial.printf("Last line of decodeCommand %d \n", cmd->value3);
+  // Serial.printf("Last line of decodeCommand %d \n", cmd->value3);
 
 }
 

@@ -39,7 +39,7 @@ class MyCallbacks : public BLECharacteristicCallbacks {
 
     IotCommand cmd;
     decodeCommand(data, &cmd);
-    debugIotCommand(&cmd);
+    // debugIotCommand(&cmd);
     
     if (cmd.cmd == CmdEnum_servo) {
       // handle servo
@@ -108,7 +108,7 @@ void loop() {
   if (Serial.available() > 0) {
    
     String input = Serial.readStringUntil('\n');
-    Serial.println("Listening for serial Input...");
+    // Serial.println("Listening for serial Input...");
     int angle = input.toInt();
 
     if (angle >= 0 && angle <= 360) {
