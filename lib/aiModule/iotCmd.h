@@ -10,13 +10,15 @@
 
 #include <HardwareSerial.h>
 
-enum CmdEnum {
-  CmdEnum_ignore,
-  CmdEnum_move,
-  CmdEnum_servo,
-  CmdEnum_stepper,
-  CmdEnum_led,
-  CmdEnum_led_strip,
+enum DeviceCategory {
+  DeviceCategory_ignore,
+  DeviceCategory_unknown,
+  DeviceCategory_move,
+  DeviceCategory_car_2_fixed_wheel_module,
+  DeviceCategory_servo,
+  DeviceCategory_stepper,
+  DeviceCategory_led,
+  DeviceCategory_led_strip,
 };
 
 enum SubCmdEnum {
@@ -46,7 +48,7 @@ enum SubCmdEnum {
 
 // Structure using enums
 typedef struct {
-  CmdEnum cmd;
+  DeviceCategory cmd;
   SubCmdEnum subcmd;
   
   // if there are multiple IO types, like if we have 3 LED, 
@@ -64,7 +66,7 @@ void decodeCommand(const uint8_t* data, IotCommand* cmd) {
   
   if (cmd == nullptr) return; 
 
-  cmd->cmd = CmdEnum_ignore;
+  cmd->cmd = DeviceCategory_ignore;
 
   if (data == nullptr) {
     Serial.printf("Invalid stream for decodeCommand \n");
@@ -74,7 +76,7 @@ void decodeCommand(const uint8_t* data, IotCommand* cmd) {
   // Assuming 2 bytes per int, decode identifier and values (big-endian or little-endian as needed)
   // Decode enums and integer values from the incoming byte array
   // data[0] is LSB, data[1] is MSB
-  cmd->cmd = static_cast<CmdEnum>( (data[1] << 8) | data[0] );
+  cmd->cmd = static_cast<DeviceCategory>( (data[1] << 8) | data[0] );
   cmd->subcmd = static_cast<SubCmdEnum>( (data[3] << 8) | data[2]  );
 
   // Decode 16-bit little-endian values from pairs of bytes

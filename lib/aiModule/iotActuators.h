@@ -1,3 +1,6 @@
+#ifndef IOT_ACTUATOR_H
+#define IOT_ACTUATOR_H
+
 #include <ESP32Servo.h>
 #include <HardwareSerial.h>
 #include <CytronMotorDriver.h>
@@ -204,7 +207,7 @@ void controlNemaStepper(int servoNumber, int angle) {
 }
 
 // run any functions of motors, servo, stepper, which has to be looped here
-void runActuatorLoop() {
+void loopActuator() {
   // Run the stepper until the target position is reached
   if (nema_stepper.distanceToGo() != 0) {
     NEMA_ACTIVE = true;
@@ -214,3 +217,5 @@ void runActuatorLoop() {
     NEMA_ACTIVE = false;
   }
 }
+
+#endif // IOT_ACTUATOR_H
