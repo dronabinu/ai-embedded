@@ -15,22 +15,33 @@ typedef void (*CmdCallback)(const String& args);
 typedef void (*CmdReadCallback)();
 
 // Forward declarations of command callbacks
-void atCmdStepperAngle(const String& args);
+
 void atCmdWifiSSID(const String& args);
 void atCmdWifiPass(const String& args);
+
 void atCmdStepperConfig(const String& args);
 void atCmdServoConfig(const String& args);
+
 void atCmdLedConfig(const String& args);
 void atCmdConfig(const String& args);
+
+void atCmdStepperAngle(const String& args);
+void atCmdServoAngle(const String& args);
+
 void atCmdClearStorage(const String& args);
 
-void atReadStepperAngle();
 void atReadWifiSSID();
 void atReadWifiPass();
+
 void atReadStepperConfig();
 void atReadServoConfig();
+
 void atReadLedConfig();
 void atReadConfig();
+
+void atReadStepperAngle();
+void atReadServoAngle();
+
 
 void loopSerialCmd();
 int splitString(const String& input, char delimiter, String output[], int maxParts);
@@ -48,9 +59,11 @@ AtCommand atCommands[] = {
     
     {"WIFI_SSID", "Config Wifi SSID, eg: AT_CONF_WIFI_SSID=[WIFI-SSID]", atCmdWifiSSID, atReadWifiSSID},
     {"WIFI_PASS", "Config Wifi SSID, eg: AT_CONF_WIFI_PASS=[WIFI-PASS]", atCmdWifiPass, atReadWifiPass},
-    {"STP_PIN", "Config Stepper Pin, eg: AT_CONF_STP_PIN=[STEPPER NUMBER], [STEPPER_PIN, DIR_PIN]" , atCmdStepperConfig, atReadStepperConfig},
-    {"LED_PIN", "Config Led Pin, eg: AT_CONF_LED_PIN=[LED NUMBER], [LED_PIN]" , atCmdLedConfig, atReadLedConfig},
+    {"STEPPER", "Config Stepper Pin, eg: AT_CONF_STP_PIN=[STEPPER NUMBER], [STEPPER_PIN, DIR_PIN]" , atCmdStepperConfig, atReadStepperConfig},
+    {"SERVO", "Config Stepper Pin, eg: AT_CONF_STP_PIN=[STEPPER NUMBER], [STEPPER_PIN, DIR_PIN]" , atCmdServoConfig, atReadServoConfig},
+    {"LED", "Config Led Pin, eg: AT_CONF_LED_PIN=[LED NUMBER], [LED_PIN]" , atCmdLedConfig, atReadLedConfig},
     {"STP_ANGLE", "Move stepper to angle, eg: move stepper 1 to angle 20, AT+STP_ANGLE=1,20", atCmdStepperAngle, atReadStepperAngle},
+    {"SRV_ANGLE", "Move servo to angle, eg: move servo 1 to angle 20, AT+STP_ANGLE=1,20", atCmdServoAngle, atReadServoAngle},
     {"CLEAR_STORAGE", "Clear all stored values", atCmdClearStorage, nullptr}
 };
 
@@ -193,17 +206,19 @@ void atCmdServoConfig(const String& params) {
 
     if (params.length() > 0) {
         String parts[2]; // adjust size as needed
-        Serial.printf("Configuring servo start");
+        Serial.printf("Configuring servo");
         int numParts = splitString(params, ',', parts, 2);
         if (numParts == 2) {
             
-            int stepper_id = parts[0].toInt();
-            int step_pin = parts[1].toInt();
-            int dir_pin = parts[2].toInt();
-            String stepperName = "SRV" + String(stepper_id);
-            ConnectedIO io = {DeviceCategory_stepper, stepperName, {step_pin, dir_pin}, 2};
+            int servo_id = parts[0].toInt();
+            int servo_Pin = parts[1].toInt();
+            String servoName = "SRV" + String(servo_id);
+            ConnectedIO io = {DeviceCategory_servo, servoName, {servo_Pin}, 1};
+
             devicePrefs.saveIODevice(io);
             devicePrefs.printDevice(io);
+            
+            configServo(servo_id, servo_Pin);
 
         } else {
             Serial.println("ERROR: Invalid format");
@@ -255,12 +270,37 @@ void atCmdStepperAngle(const String& params) {
     }
 }
 
+void atCmdServoAngle(const String& params) {
+    if (params.length() > 0) {
+        String parts[2]; // adjust size as needed
+        int numParts = splitString(params, ',', parts, 2);
+        if (numParts == 2) {
+            int servo = parts[0].toInt();
+            int angle = parts[1].toInt();
+            if (angle >= 0 && angle <= 360) {
+                controlServo(servo, angle);
+                Serial.println("OK");
+            } else {
+                Serial.println("ERROR: Invalid angle (0-360)");
+            }
+        } else {
+            Serial.println("ERROR: Invalid format");
+        }
+    } else {
+        Serial.println("ERROR: invalid params, format stepper, angle");
+    }
+}
+
 void atCmdClearStorage(const String& params) {
     devicePrefs.clear();
     Serial.println("Cleared storage");
 }
 
 void atReadStepperAngle() {
+    Serial.println("Stepper angle : ");    
+}
+
+void atReadServoAngle() {
     Serial.println("Stepper angle : ");    
 }
 

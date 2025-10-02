@@ -75,7 +75,7 @@ void alterInBuiltLed(int state) {
 
 void initializeIODevices(ConnectedIO devices[]) {
 
-  int servoCount = 0;
+  int servoCount = 1;
   // iterate through all the devices
   for(size_t i=0; i<MAX_ITEMS; i++) {
     ConnectedIO io = devices[i];
@@ -101,22 +101,6 @@ void initializeIODevices(ConnectedIO devices[]) {
   // TODO BINU, make this dynamic, later
   // nema setup
 
-}
-
-
-void configServo(int servoNum, int  servoPin) {
-  if (!servos[servoNum].attach(servoPin)) {
-    Serial.printf("Failed to attach servo %d at pin %d \n", servoNum, servoPin);
-  } else {
-    Serial.printf("Servo %d up on pin %d \n", servoNum, servoPin);
-  }
-}
-
-void configNemaStepper(int stepPin, int dirPin) {
-  nema_stepper = new AccelStepper(1, stepPin, dirPin);
-  Serial.printf("Initialized Stepper with step pin %d, dir pin %d\n", stepPin, dirPin);
-  nema_stepper->setMaxSpeed(1000);//1100
-  nema_stepper->setAcceleration(1100);
 }
 
 void setSpeed(int speed) {
@@ -174,6 +158,16 @@ void controlpadWithSpeed(IotCommand* cmd) {
   else if (cmd->subcmd == SubCmdEnum_move_stop) carStop();
 }
 
+//------------ SERVO -------------------
+
+void configServo(int servoNum, int  servoPin) {
+  servoNum--;
+  if (!servos[servoNum].attach(servoPin)) {
+    Serial.printf("Failed to attach servo %d at pin %d \n", servoNum, servoPin);
+  } else {
+    Serial.printf("Servo %d up on pin %d \n", servoNum, servoPin);
+  }
+}
 
 /// @brief Changes angle on the chosen servo
 /// @param servoNumber 
@@ -188,6 +182,15 @@ void controlServo(int servoNumber, int angle) {
 void controlLed(int ledPin, int value) {
   Serial.printf("Setting Led Pin %d, value %d \n", ledPin, value);
   digitalWrite(ledPin, value);
+}
+
+//------------ STEPPER -------------------
+
+void configNemaStepper(int stepPin, int dirPin) {
+  nema_stepper = new AccelStepper(1, stepPin, dirPin);
+  Serial.printf("Initialized Stepper with step pin %d, dir pin %d\n", stepPin, dirPin);
+  nema_stepper->setMaxSpeed(1000);//1100
+  nema_stepper->setAcceleration(1100);
 }
 
 void controlStepper(int servoNumber, int angle) {
