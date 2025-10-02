@@ -46,5 +46,5 @@ void loop() {
 
   // run stepper, motors and servo
   loopActuator();
-  // delay(100);
+  // delay(10);
 }
