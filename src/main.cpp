@@ -1,7 +1,4 @@
-#include <BLEServer.h>
-#include <BLEDevice.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
+
 #include <esp32-hal-gpio.h>
 #include <HardwareSerial.h>
 #include <iotCmd.h>
@@ -10,19 +7,23 @@
 
 #include <serialCmd.h>
 
-
-uint8_t txValue = 0;
-
+// Binu Udayakumar binu@dronasys.com
+// UI tools can be accessed at https://binuud.com
 
 void setup() {
   
   Serial.begin(115200);
   Serial.println("Setup Begin...");
 
-  DeviceConfig loadedDevice = devicePrefs.loadConfig();
-  configPins();
+  // load preferences from EEPROM
+  // this has to be called first before any other initiations
+  // since we are storing pinout information here
+  DeviceConfig config = devicePrefs.loadConfig();
 
-  myStepper.setSpeed(15); // speed in RPM
+  // now initialize IO devices with the device information loaded from above.
+  initializeIODevices(devicePrefs.devices);
+
+  // myStepper.setSpeed(15); // speed in RPM
 
   setupBle();
 
@@ -31,6 +32,9 @@ void setup() {
 }
 
 
+// each module will have to implement its own loop.
+// this loop will act like a scheduler without priority
+// avoid calls to delay, from with module loops
 void loop() {
 
   // listen for commands from serial interface 
@@ -42,5 +46,5 @@ void loop() {
 
   // run stepper, motors and servo
   loopActuator();
-  delay(100);
+  // delay(100);
 }

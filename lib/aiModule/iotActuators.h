@@ -7,6 +7,7 @@
 #include <iotCmd.h>
 #include <Stepper.h>
 #include <AccelStepper.h>
+#include <boardState.h>
 
 #define LEFT_FORWARD_PIN    19  // Built-in LED is usually at GPIO2
 #define LEFT_BACKWARD_PIN   18  // Built-in LED is usually at GPIO2
@@ -21,25 +22,29 @@
 
 // NEMA STEPPER WITH TB6600 (3PIN, 3V Enable)
 
-#define TB6600_STEP_PIN 33
-#define TB6600_DIR_PIN 32
+// #define TB6600_STEP_PIN 33
+// #define TB6600_DIR_PIN 32
 // #define TB6600_ENABLE_PIN 16
 
-bool NEMA_ACTIVE = false;
-
-// Define a stepper motor 1 for arduino 
-// TB6600_STEP_PIN Digital 5 (CLK), direction Digital TB6600_DIR_PIN 17 (CW), 
-AccelStepper nema_stepper(1, TB6600_STEP_PIN, TB6600_DIR_PIN);
-
-const int nema_stepsPerRevolution = 1600; // Full steps per revolution of your motor (e.g., 200 for 1.8 degree stepper)
-long nema_currentStep = 0;
-
 #define RGB_PIN 2  // Built-in LED is usually at GPIO2
+
+// function headers
+void configServo(int servoNum, int  servoPin);
+void configNemaStepper(int stepPin, int dirPin); 
 
 // Configure the motor driver.
 CytronMD leftMotor(PWM_PWM, LEFT_FORWARD_PIN, LEFT_BACKWARD_PIN);   // PWM 1A = Pin 3, PWM 1B = Pin 9.
 CytronMD rightMotor(PWM_PWM, RIGHT_FORWARD_PIN, RIGHT_BACKWARD_PIN); // PWM 2A = Pin 10, PWM 2B = Pin 11.
 
+bool NEMA_ACTIVE = false;
+
+// Define a stepper motor 1 for arduino 
+// TB6600_STEP_PIN Digital 5 (CLK), direction Digital TB6600_DIR_PIN 17 (CW), 
+//AccelStepper nema_stepper(1, TB6600_STEP_PIN, TB6600_DIR_PIN);
+AccelStepper* nema_stepper = nullptr;
+
+const int nema_stepsPerRevolution = 1600; // Full steps per revolution of your motor (e.g., 200 for 1.8 degree stepper)
+long nema_currentStep = 0;
 
 const int stepsPerRevolution = 2048; // for 28BYJ-48
 // need better way to resolve pin conflicts #TODO binu
@@ -57,11 +62,8 @@ const int servoCount = 3;
 
 // Define servo pins
 const int servoPins[servoCount] = {27, 26, 27}; // servo pins
-
 // Create Servo objects
 Servo servos[servoCount];
-
-
 
 // Alter the state of the onboard led
 // To be used when there is a command sent on bluetooth
@@ -71,7 +73,23 @@ void alterInBuiltLed(int state) {
 #endif
 }
 
-void configPins() {
+void initializeIODevices(ConnectedIO devices[]) {
+
+  int servoCount = 0;
+  // iterate through all the devices
+  for(size_t i=0; i<MAX_ITEMS; i++) {
+    ConnectedIO io = devices[i];
+    if (io.dev == DeviceCategory_stepper) {
+      // configure stepper
+      configNemaStepper(io.pin[0], io.pin[1]);
+    } else if (io.dev == DeviceCategory_servo) {
+      // configure stepper
+      configServo(servoCount, io.pin[0]);
+      servoCount++;
+    } else if (io.dev == DeviceCategory_led) {
+      pinMode(io.pin[0], OUTPUT);  // Initialize the LED pin as output
+    }
+  }
     
   pinMode(RGB_PIN, OUTPUT);  // Initialize the LED pin as output
 
@@ -80,20 +98,25 @@ void configPins() {
   pinMode(RIGHT_FORWARD_PIN, OUTPUT); 
   pinMode(RIGHT_BACKWARD_PIN, OUTPUT); 
 
-  // Attach each servo to its pin
-  for (int i = 0; i < servoCount; i++) {
-    if (!servos[i].attach(servoPins[i])) {
-      Serial.printf("Failed to attach servo %d at pin %d \n", i, servoPins[i]);
-    } else {
-      Serial.printf("Servo %d up on pin %d \n", i, servoPins[i]);
-    }
-  }
-
   // TODO BINU, make this dynamic, later
   // nema setup
-  nema_stepper.setMaxSpeed(1000);//1100
-  nema_stepper.setAcceleration(1100);
 
+}
+
+
+void configServo(int servoNum, int  servoPin) {
+  if (!servos[servoNum].attach(servoPin)) {
+    Serial.printf("Failed to attach servo %d at pin %d \n", servoNum, servoPin);
+  } else {
+    Serial.printf("Servo %d up on pin %d \n", servoNum, servoPin);
+  }
+}
+
+void configNemaStepper(int stepPin, int dirPin) {
+  nema_stepper = new AccelStepper(1, stepPin, dirPin);
+  Serial.printf("Initialized Stepper with step pin %d, dir pin %d\n", stepPin, dirPin);
+  nema_stepper->setMaxSpeed(1000);//1100
+  nema_stepper->setAcceleration(1100);
 }
 
 void setSpeed(int speed) {
@@ -163,7 +186,6 @@ void controlServo(int servoNumber, int angle) {
 }
 
 void controlLed(int ledPin, int value) {
-
   Serial.printf("Setting Led Pin %d, value %d \n", ledPin, value);
   digitalWrite(ledPin, value);
 }
@@ -174,16 +196,17 @@ void controlStepper(int servoNumber, int angle) {
   int stepToMove = targetStep - currentStep;
   myStepper.step(stepToMove); // move motor by calculated steps
   currentStep = targetStep;
-  
-  
+    
   Serial.print("Moved stepper to angle: ");
   Serial.println(angle);
 
 }
 
-void controlNemaStepper(int servoNumber, int angle) {
+void controlNemaStepper(int stepperNum, int angle) {
 
-
+  if (nema_stepper == nullptr) {
+    Serial.printf("Nema Stepper not initialized");
+  }
 
   // Clamp angle between 0 and 360
   if (angle > 360) angle = 360;
@@ -191,7 +214,7 @@ void controlNemaStepper(int servoNumber, int angle) {
 
   int targetStep = (angle * nema_stepsPerRevolution) / 360;
 
-  int currentStep = nema_stepper.currentPosition();
+  int currentStep = nema_stepper->currentPosition();
 
   if (NEMA_ACTIVE) {
     Serial.printf("Old run active, interrupt, move new %d \n", angle);
@@ -199,19 +222,22 @@ void controlNemaStepper(int servoNumber, int angle) {
   }
 
   int stepToMove = targetStep - currentStep;
-  nema_stepper.move(stepToMove); // move motor by calculated steps
+  nema_stepper->move(stepToMove); // move motor by calculated steps
   nema_currentStep = targetStep;
   
-  Serial.printf("Moved nema step: %d, angle %d \n", currentStep, angle);
-
+  Serial.printf("Moving Stepper %d with angle %d", stepperNum, angle);
+  
 }
 
 // run any functions of motors, servo, stepper, which has to be looped here
 void loopActuator() {
+  if (nema_stepper == nullptr) {
+    return;
+  }
   // Run the stepper until the target position is reached
-  if (nema_stepper.distanceToGo() != 0) {
+  if (nema_stepper->distanceToGo() != 0) {
     NEMA_ACTIVE = true;
-    nema_stepper.run();
+    nema_stepper->run();
     
   } else {
     NEMA_ACTIVE = false;

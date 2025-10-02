@@ -2,6 +2,10 @@
 #define IOT_BOARD_STATE_H
 
 // maintain state information on GPIO pinouts persistant on restarts
+// Binu Udayakumar (binu@dronasys.com)
+// Json was tried, there was a considerable slowdown. Also I want to keep the image size low.
+// This uses the preference library of espressif
+// https://docs.espressif.com/projects/arduino-esp32/en/latest/tutorials/preferences.html
 
 #include <Preferences.h>
 #include <iotCmd.h>
