@@ -2,6 +2,8 @@
 // using the AT+ command structure
 // AT+[CMD]? for reading values
 // AT+[CMD]=param1, param2 for setting values
+// Binu Udayakumar (binu@dronasys.com)
+
 
 #include <boardState.h>
 #include <iotActuators.h>
@@ -17,6 +19,7 @@ void atCmdStepperAngle(const String& args);
 void atCmdWifiSSID(const String& args);
 void atCmdWifiPass(const String& args);
 void atCmdStepperConfig(const String& args);
+void atCmdServoConfig(const String& args);
 void atCmdLedConfig(const String& args);
 void atCmdConfig(const String& args);
 void atCmdClearStorage(const String& args);
@@ -25,6 +28,7 @@ void atReadStepperAngle();
 void atReadWifiSSID();
 void atReadWifiPass();
 void atReadStepperConfig();
+void atReadServoConfig();
 void atReadLedConfig();
 void atReadConfig();
 
@@ -33,10 +37,10 @@ int splitString(const String& input, char delimiter, String output[], int maxPar
 
 
 struct AtCommand {
-    const char* name;
-    const char* desc;
-    CmdCallback execCallback;
-    CmdReadCallback readCallback;
+    const char* name;   // the actual AT command without the suffix and prefix
+    const char* desc;   // description of the command, that will be displayed to the user
+    CmdCallback execCallback;       // invoked when the command is called with suffix "=", for configuring the device
+    CmdReadCallback readCallback;   // invoked when the command is called in read mode, with suffix "?", there are no parameters in read mode
 };
 
 // Preset array of commands and their callbacks
@@ -176,6 +180,30 @@ void atCmdStepperConfig(const String& params) {
             ConnectedIO io = {DeviceCategory_stepper, stepperName, {step_pin, dir_pin}, 2};
             devicePrefs.saveIODevice(io);
             devicePrefs.printDevice(io);
+            configNemaStepper(step_pin, dir_pin);
+        } else {
+            Serial.println("ERROR: Invalid format");
+        }
+    } else {
+        Serial.println("ERROR: invalid params, format stepper, gpio");
+    }
+}
+
+void atCmdServoConfig(const String& params) {
+
+    if (params.length() > 0) {
+        String parts[2]; // adjust size as needed
+        Serial.printf("Configuring servo start");
+        int numParts = splitString(params, ',', parts, 2);
+        if (numParts == 2) {
+            
+            int stepper_id = parts[0].toInt();
+            int step_pin = parts[1].toInt();
+            int dir_pin = parts[2].toInt();
+            String stepperName = "SRV" + String(stepper_id);
+            ConnectedIO io = {DeviceCategory_stepper, stepperName, {step_pin, dir_pin}, 2};
+            devicePrefs.saveIODevice(io);
+            devicePrefs.printDevice(io);
 
         } else {
             Serial.println("ERROR: Invalid format");
@@ -213,7 +241,6 @@ void atCmdStepperAngle(const String& params) {
         if (numParts == 2) {
             int stepper = parts[0].toInt();
             int angle = parts[1].toInt();
-            Serial.printf("Moving Stepper %d with angle %d", stepper, angle);
             if (angle >= 0 && angle <= 360) {
                 controlNemaStepper(stepper, angle);
                 Serial.println("OK");
@@ -246,18 +273,29 @@ void atReadWifiPass() {
     Serial.printf("Wifi Password : %s \n", devicePrefs.config.wifi_password);    
 }
 
+void atReadServoConfig() {
+    for(int i=0;i<MAX_ITEMS;i++) {
+        ConnectedIO io = devicePrefs.devices[i];
+        if (io.dev == DeviceCategory_servo) {
+            devicePrefs.printDevice(io);
+        }
+    }
+}
+
 void atReadStepperConfig() {
     for(int i=0;i<MAX_ITEMS;i++) {
-        if (devicePrefs.devices[i].id.startsWith("STP")) {
-            devicePrefs.printDevice(devicePrefs.devices[i]);
+        ConnectedIO io = devicePrefs.devices[i];
+        if (io.dev == DeviceCategory_stepper) {
+            devicePrefs.printDevice(io);
         }
     }
 }
 
 void atReadLedConfig() {
     for(int i=0;i<MAX_ITEMS;i++) {
-        if (devicePrefs.devices[i].id.startsWith("LED")) {
-            devicePrefs.printDevice(devicePrefs.devices[i]);
+        ConnectedIO io = devicePrefs.devices[i];
+        if (io.dev == DeviceCategory_led) {
+            devicePrefs.printDevice(io);
         }
     }
 }
