@@ -61,6 +61,18 @@ typedef struct {
 } IotCommand;
 
 
+// Struct for command and its callback
+
+typedef void (*CmdCallback)(const String& args);
+typedef void (*CmdReadCallback)();
+
+struct AtCommand {
+    const char* name;   // the actual AT command without the suffix and prefix
+    const char* desc;   // description of the command, that will be displayed to the user
+    CmdCallback execCallback;       // invoked when the command is called with suffix "=", for configuring the device
+    CmdReadCallback readCallback;   // invoked when the command is called in read mode, with suffix "?", there are no parameters in read mode
+};
+
 // Decoder function to parse raw uint8_t buffer into a Command struct
 void decodeCommand(const uint8_t* data, IotCommand* cmd) {
   
