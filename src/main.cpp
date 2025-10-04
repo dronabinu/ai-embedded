@@ -5,10 +5,13 @@
 #include <iotActuators.h>
 #include <bleConfig.h> 
 
-#include <serialCmd.h>
+#include <serialHandler.h>
+#include <atCommands.h>
 
 // Binu Udayakumar binu@dronasys.com
 // UI tools can be accessed at https://binuud.com
+
+SerialHandler serialHandler(atCommands, sizeof(atCommands) / sizeof(atCommands[0]));
 
 void setup() {
   
@@ -23,7 +26,7 @@ void setup() {
   // now initialize IO devices with the device information loaded from above.
   initializeIODevices(devicePrefs.devices);
 
-  // myStepper.setSpeed(15); // speed in RPM
+  serialHandler.help(); // print al the AT-Commands
 
   setupBle();
 
@@ -39,7 +42,7 @@ void loop() {
 
   // listen for commands from serial interface 
   // and invoke the same
-  loopSerialCmd();
+  serialHandler.loop();
 
   // run ble loop()
   loopBle();

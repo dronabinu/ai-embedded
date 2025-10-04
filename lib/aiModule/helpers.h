@@ -1,6 +1,11 @@
 #ifndef HELPERS_H
 #define HELPERS_H
 
+
+String joinStringArray(String arr[], size_t len, const char delimiter);
+int splitString(const String& input, char delimiter, String output[], int maxParts);
+
+
 // Helper function to join array of strings into one string with delimiter
 String joinStringArray(String arr[], size_t len, const char delimiter) {
     String result = "";

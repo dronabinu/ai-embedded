@@ -1,18 +1,10 @@
-// for parsing commands from serial and invoking same
-// using the AT+ command structure
-// AT+[CMD]? for reading values
-// AT+[CMD]=param1, param2 for setting values
-// Binu Udayakumar (binu@dronasys.com)
+#include <iotCmd.h>
 
-
+#include <serialHandler.h>
 #include <boardState.h>
 #include <iotActuators.h>
-#include <helpers.h>
 
-// Struct for command and its callback
-
-typedef void (*CmdCallback)(const String& args);
-typedef void (*CmdReadCallback)();
+// add remove AT Commands here
 
 // Forward declarations of command callbacks
 
@@ -42,19 +34,9 @@ void atReadConfig();
 void atReadStepperAngle();
 void atReadServoAngle();
 
-
-void loopSerialCmd();
-int splitString(const String& input, char delimiter, String output[], int maxParts);
-
-
-struct AtCommand {
-    const char* name;   // the actual AT command without the suffix and prefix
-    const char* desc;   // description of the command, that will be displayed to the user
-    CmdCallback execCallback;       // invoked when the command is called with suffix "=", for configuring the device
-    CmdReadCallback readCallback;   // invoked when the command is called in read mode, with suffix "?", there are no parameters in read mode
-};
-
 // Preset array of commands and their callbacks
+// link AT Command to the corresponding callbacks here
+
 AtCommand atCommands[] = {
     
     {"WIFI_SSID", "Config Wifi SSID, eg: AT_CONF_WIFI_SSID=[WIFI-SSID]", atCmdWifiSSID, atReadWifiSSID},
@@ -65,85 +47,8 @@ AtCommand atCommands[] = {
     {"STP_ANGLE", "Move stepper to angle, eg: move stepper 1 to angle 20, AT+STP_ANGLE=1,20", atCmdStepperAngle, atReadStepperAngle},
     {"SRV_ANGLE", "Move servo to angle, eg: move servo 1 to angle 20, AT+STP_ANGLE=1,20", atCmdServoAngle, atReadServoAngle},
     {"CLEAR_STORAGE", "Clear all stored values", atCmdClearStorage, nullptr}
+
 };
-
-const int atCommandCount = sizeof(atCommands) / sizeof(atCommands[0]);
-
-void loopSerialCmd() {
-
-    if (Serial.available() > 0) {
-        
-        String input = Serial.readStringUntil('\n');
-        input.trim();
-
-        String prefix = input.substring(0, 4);  // Get the first two characters
-        prefix.toUpperCase();   
-
-        if (!prefix.startsWith("AT")) {
-            Serial.println("ERROR: Commands must start with 'AT'");
-            return;
-        }
-
-        // Handle help command if input is exactly "AT?" or "AT+?"
-        if (prefix == "AT?" || prefix == "AT+?") {
-            Serial.println("Available commands:");
-            Serial.println("  AT? -- help message");
-            for (int i = 0; i < atCommandCount; i++) {
-                Serial.println(String("  AT+") + atCommands[i].name + "=<params>");
-                Serial.println(String("    Desc: ") + atCommands[i].desc);
-            }
-            Serial.println("OK");
-            return;
-        }
-
-        // Remove the "AT" prefix
-        String cmdLine = input.substring(3);
-        cmdLine.trim();
-
-        if (cmdLine.length() == 0) {
-            Serial.println("OK");
-            return;  // Just "AT" command, respond OK
-        }
-        cmdLine.toUpperCase();  // Convert cmdName to lowercase
-        // Find command in atCommands array
-        bool handled = false;
-        for (int i = 0; i < atCommandCount; i++) {
-            String cmdName = atCommands[i].name;
-
-            if (cmdLine.startsWith(cmdName)) {
-                String params = input.substring(3+cmdName.length()); // to prevent auto uppercase, done above to influence the parameters
-                params.trim();
-
-                // If parameters start with '=', remove it and pass rest as params
-                if (params.startsWith("=")) {
-                    params = params.substring(1);
-                    params.trim();
-                    if (atCommands[i].execCallback != nullptr) {
-                        atCommands[i].execCallback(params);
-                    }
-                    
-                    handled = true;
-                } else {
-                    // No parameters part after command
-                    // treat it as a read command
-                    if (atCommands[i].readCallback != nullptr) {
-                        atCommands[i].readCallback();
-                    }
-                    
-                    handled = true;
-                }
-
-                break;
-            }
-        }
-
-        if (!handled) {
-            Serial.println("Unknown command. Available commands: ANGLE, WIFI_SSID, WIFI_PASS, CONFIG.");
-        }
-    }    
-}
-
-
 
 
 // AT command handlers
