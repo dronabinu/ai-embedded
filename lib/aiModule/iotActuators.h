@@ -244,7 +244,7 @@ void controlNemaStepper(int stepperNum, int angle) {
   nema_stepper->move(stepToMove); // move motor by calculated steps
   nema_currentStep = targetStep;
   
-  Serial.printf("Moving Stepper %d with angle %d", stepperNum, angle);
+  Serial.printf("Moving Stepper %d with angle %d\n", stepperNum, angle);
   
 }
 
