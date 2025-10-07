@@ -14,7 +14,7 @@ enum DeviceCategory {
   DeviceCategory_ignore,
   DeviceCategory_unknown,
   DeviceCategory_move,
-  DeviceCategory_car_2_fixed_wheel_module,
+  DeviceCategory_car_2_wheel_module,
   DeviceCategory_servo,
   DeviceCategory_stepper,
   DeviceCategory_led,

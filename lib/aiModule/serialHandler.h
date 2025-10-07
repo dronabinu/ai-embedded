@@ -7,6 +7,8 @@
 // AT+[CMD]=param1, param2 for setting values
 // Binu Udayakumar (binu@dronasys.com)
 
+// this is prefix match, commands coming first, will take precendence in prefix match
+
 #include <helpers.h>
 #include <iotCmd.h>
 

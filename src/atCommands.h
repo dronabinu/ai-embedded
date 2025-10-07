@@ -11,6 +11,9 @@
 void atCmdWifiSSID(const String& args);
 void atCmdWifiPass(const String& args);
 
+void atCmdCarConfig(const String& args);
+void atCmdCarMove(const String& args);
+
 void atCmdStepperConfig(const String& args);
 void atCmdServoConfig(const String& args);
 
@@ -25,6 +28,9 @@ void atCmdClearStorage(const String& args);
 void atReadWifiSSID();
 void atReadWifiPass();
 
+void atReadCarConfig();
+void atReadCarMove();
+
 void atReadStepperConfig();
 void atReadServoConfig();
 
@@ -38,14 +44,23 @@ void atReadServoAngle();
 // link AT Command to the corresponding callbacks here
 
 AtCommand atCommands[] = {
+
+    // this is prefix match, commands coming first, will take precendence in prefix match
     
-    {"WIFI_SSID", "Config Wifi SSID, eg: AT_CONF_WIFI_SSID=[WIFI-SSID]", atCmdWifiSSID, atReadWifiSSID},
-    {"WIFI_PASS", "Config Wifi SSID, eg: AT_CONF_WIFI_PASS=[WIFI-PASS]", atCmdWifiPass, atReadWifiPass},
-    {"STEPPER", "Config Stepper Pin, eg: AT_CONF_STP_PIN=[STEPPER NUMBER], [STEPPER_PIN, DIR_PIN]" , atCmdStepperConfig, atReadStepperConfig},
-    {"SERVO", "Config Stepper Pin, eg: AT_CONF_STP_PIN=[STEPPER NUMBER], [STEPPER_PIN, DIR_PIN]" , atCmdServoConfig, atReadServoConfig},
-    {"LED", "Config Led Pin, eg: AT_CONF_LED_PIN=[LED NUMBER], [LED_PIN]" , atCmdLedConfig, atReadLedConfig},
+    {"WIFI_SSID", "Config Wifi SSID, eg: AT+WIFI_SSID=[WIFI-SSID]", atCmdWifiSSID, atReadWifiSSID},
+    {"WIFI_PASS", "Config Wifi SSID, eg: AT+WIFI_PASS=[WIFI-PASS]", atCmdWifiPass, atReadWifiPass},
+
+    {"CAR", "Config Car control Pins, eg: AT+CAR=[MotorLeft+], [MotorLeft-], [MotorRight+], [MotorRight-]" , atCmdCarConfig, atReadCarConfig},
+    {"STEPPER", "Config Stepper Pin, eg: AT+STEPPER=[STEPPER NUMBER], [STEPPER_PIN, DIR_PIN]" , atCmdStepperConfig, atReadStepperConfig},
+    {"SERVO", "Config Stepper Pin, eg: AT+SERVO=[STEPPER NUMBER], [STEPPER_PIN, DIR_PIN]" , atCmdServoConfig, atReadServoConfig},
+
+    {"LED", "Config Led Pin, eg: AT+LED=[LED NUMBER], [LED_PIN]" , atCmdLedConfig, atReadLedConfig},
+
+    {"MOVE", "Move car, AT+MOVE=[W (Forward),A(Left),S(Back),D(Back),Z(Stop)], SPEED", atCmdCarMove, atReadCarMove},
+
     {"STP_ANGLE", "Move stepper to angle, eg: move stepper 1 to angle 20, AT+STP_ANGLE=1,20", atCmdStepperAngle, atReadStepperAngle},
-    {"SRV_ANGLE", "Move servo to angle, eg: move servo 1 to angle 20, AT+STP_ANGLE=1,20", atCmdServoAngle, atReadServoAngle},
+    {"SRV_ANGLE", "Move servo to angle, eg: move servo 1 to angle 20, AT+SRV_ANGLE=1,20", atCmdServoAngle, atReadServoAngle},
+
     {"CLEAR_STORAGE", "Clear all stored values", atCmdClearStorage, nullptr}
 
 };
@@ -80,6 +95,31 @@ void atCmdWifiPass(const String& params) {
         Serial.printf("atCmdWifiPass new password %s %s , OK\n", params);
     } else {
         Serial.println("ERROR: Password required");
+    }
+}
+
+
+void atCmdCarConfig(const String& params) {
+    if (params.length() > 0) {
+        String parts[4]; // adjust size as needed
+        int numParts = splitString(params, ',', parts, 4);
+        if (numParts == 4) {
+            
+            int motorA1 = parts[0].toInt();
+            int motorA2 = parts[1].toInt();
+            int motorB1 = parts[2].toInt();
+            int motorB2 = parts[3].toInt();
+            
+            String carName = "CAR1" ;
+            ConnectedIO io = {DeviceCategory_car_2_wheel_module, carName, {motorA1, motorA2, motorB1, motorB2}, 4};
+            devicePrefs.saveIODevice(io);
+            devicePrefs.printDevice(io);
+            configCar(motorA1, motorA2, motorB1, motorB2);
+        } else {
+            Serial.println("ERROR: Invalid format");
+        }
+    } else {
+        Serial.println("ERROR: invalid params, format motorA1, motorA2, motorB1, motorB2");
     }
 }
 
@@ -154,6 +194,32 @@ void atCmdLedConfig(const String& params) {
 }
 
 
+void atCmdCarMove(const String& params) {
+    if (params.length() > 0) {
+        String parts[2]; // adjust size as needed
+        int numParts = splitString(params, ',', parts, 2);
+        if (numParts == 2) {
+            String action = parts[0];
+            action.toUpperCase();   
+            int speed = parts[1].toInt();
+            if (speed > 100) speed = 100;
+            if (speed < 0) speed = 0;
+            setSpeed(speed);
+            Serial.printf("Car command %s, %d \n", action, speed);
+            if (action == "W") moveForward(); 
+            else if (action == "S") moveBackward();
+            else if (action == "A") turnLeft();
+            else if (action == "D") turnRight();
+            else if (action == "Z") carStop();
+        } else {
+            Serial.println("ERROR: Invalid format");
+        }
+    } else {
+        Serial.println("ERROR: invalid params, format Direction[WASDZ], speed");
+    }    
+}
+
+
 void atCmdStepperAngle(const String& params) {
     if (params.length() > 0) {
         String parts[2]; // adjust size as needed
@@ -218,6 +284,15 @@ void atReadWifiPass() {
     Serial.printf("Wifi Password : %s \n", devicePrefs.config.wifi_password);    
 }
 
+void atReadCarConfig() {
+    for(int i=0;i<MAX_ITEMS;i++) {
+        ConnectedIO io = devicePrefs.devices[i];
+        if (io.dev == DeviceCategory_car_2_wheel_module) {
+            devicePrefs.printDevice(io);
+        }
+    }
+}
+
 void atReadServoConfig() {
     for(int i=0;i<MAX_ITEMS;i++) {
         ConnectedIO io = devicePrefs.devices[i];
@@ -244,6 +319,11 @@ void atReadLedConfig() {
         }
     }
 }
+
+void atReadCarMove() {
+    Serial.print("Not Implemented : \n");    
+}
+
 
 void atReadConfig() {
     Serial.print("Stepper angle : \n");    
