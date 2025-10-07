@@ -9,16 +9,16 @@
 #include <AccelStepper.h>
 #include <boardState.h>
 
-#define LEFT_FORWARD_PIN    19  // Built-in LED is usually at GPIO2
-#define LEFT_BACKWARD_PIN   18  // Built-in LED is usually at GPIO2
-#define RIGHT_FORWARD_PIN    5  // Built-in LED is usually at GPIO2
-#define RIGHT_BACKWARD_PIN   17  // Built-in LED is usually at GPIO2
+// #define LEFT_FORWARD_PIN    19  // Built-in LED is usually at GPIO2
+// #define LEFT_BACKWARD_PIN   18  // Built-in LED is usually at GPIO2
+// #define RIGHT_FORWARD_PIN    5  // Built-in LED is usually at GPIO2
+// #define RIGHT_BACKWARD_PIN   17  // Built-in LED is usually at GPIO2
 
 // Define stepper motor control pins
-#define IN1 19
-#define IN2 18
-#define IN3 5
-#define IN4 17
+// #define IN1 19
+// #define IN2 18
+// #define IN3 5
+// #define IN4 17
 
 // NEMA STEPPER WITH TB6600 (3PIN, 3V Enable)
 
@@ -31,10 +31,7 @@
 // function headers
 void configServo(int servoNum, int  servoPin);
 void configNemaStepper(int stepPin, int dirPin); 
-
-// Configure the motor driver.
-CytronMD leftMotor(PWM_PWM, LEFT_FORWARD_PIN, LEFT_BACKWARD_PIN);   // PWM 1A = Pin 3, PWM 1B = Pin 9.
-CytronMD rightMotor(PWM_PWM, RIGHT_FORWARD_PIN, RIGHT_BACKWARD_PIN); // PWM 2A = Pin 10, PWM 2B = Pin 11.
+void configCar(int motorA1, int  motorA2, int motorB1, int  motorB2);
 
 bool NEMA_ACTIVE = false;
 
@@ -43,12 +40,16 @@ bool NEMA_ACTIVE = false;
 //AccelStepper nema_stepper(1, TB6600_STEP_PIN, TB6600_DIR_PIN);
 AccelStepper* nema_stepper = nullptr;
 
+// Car motors
+CytronMD* leftMotor = nullptr;
+CytronMD* rightMotor = nullptr;
+
 const int nema_stepsPerRevolution = 1600; // Full steps per revolution of your motor (e.g., 200 for 1.8 degree stepper)
 long nema_currentStep = 0;
 
 const int stepsPerRevolution = 2048; // for 28BYJ-48
 // need better way to resolve pin conflicts #TODO binu
-Stepper myStepper(stepsPerRevolution, IN1, IN3, IN2, IN4); // 28byj stepper
+// Stepper myStepper(stepsPerRevolution, IN1, IN3, IN2, IN4); // 28byj stepper
 int currentStep = 0; // track current step position
 
 
@@ -88,15 +89,14 @@ void initializeIODevices(ConnectedIO devices[]) {
       servoCount++;
     } else if (io.dev == DeviceCategory_led) {
       pinMode(io.pin[0], OUTPUT);  // Initialize the LED pin as output
+    } else if (io.dev == DeviceCategory_car_2_wheel_module) {
+      configCar(io.pin[0], io.pin[1], io.pin[2], io.pin[3]);
     }
   }
     
   pinMode(RGB_PIN, OUTPUT);  // Initialize the LED pin as output
 
-  pinMode(LEFT_FORWARD_PIN, OUTPUT); 
-  pinMode(LEFT_BACKWARD_PIN, OUTPUT); 
-  pinMode(RIGHT_FORWARD_PIN, OUTPUT); 
-  pinMode(RIGHT_BACKWARD_PIN, OUTPUT); 
+
 
   // TODO BINU, make this dynamic, later
   // nema setup
@@ -114,37 +114,37 @@ void setSpeed(int speed) {
 
 void moveForward() {
   alterInBuiltLed(HIGH);
-  leftMotor.setSpeed(g_speed);
-  rightMotor.setSpeed(g_speed);
+  leftMotor->setSpeed(g_speed);
+  rightMotor->setSpeed(g_speed);
   Serial.println("********** Move Forward");
 }
 
 void moveBackward() {
   // alterInBuiltLed(HIGH);
-  leftMotor.setSpeed(-g_speed);
-  rightMotor.setSpeed(-g_speed);
+  leftMotor->setSpeed(-g_speed);
+  rightMotor->setSpeed(-g_speed);
   Serial.println("********** Move Backward");
 }
 
 void turnLeft() {
   alterInBuiltLed(HIGH);
-  leftMotor.setSpeed(-g_speed);
-  rightMotor.setSpeed(g_speed);
+  leftMotor->setSpeed(-g_speed);
+  rightMotor->setSpeed(g_speed);
   Serial.println("********** Turn Left");
 }
 
 void turnRight() {
   alterInBuiltLed(HIGH);
-  leftMotor.setSpeed(g_speed);
-  rightMotor.setSpeed(-g_speed);
+  leftMotor->setSpeed(g_speed);
+  rightMotor->setSpeed(-g_speed);
   Serial.println("********** Turn Right");
 }
 
 void carStop() {
   setSpeed(0);
   alterInBuiltLed(LOW);
-  leftMotor.setSpeed(LOW);
-  rightMotor.setSpeed(LOW);
+  leftMotor->setSpeed(LOW);
+  rightMotor->setSpeed(LOW);
   Serial.println("********** Car Stop");
 }
 
@@ -156,6 +156,22 @@ void controlpadWithSpeed(IotCommand* cmd) {
   else if (cmd->subcmd == SubCmdEnum_move_turn_left) turnLeft();
   else if (cmd->subcmd == SubCmdEnum_move_turn_right) turnRight();
   else if (cmd->subcmd == SubCmdEnum_move_stop) carStop();
+}
+
+//------------ CAR ---------------------
+void configCar(int motorA1, int  motorA2, int motorB1, int  motorB2) {
+  // pinMode(motorA1, OUTPUT); 
+  // pinMode(motorA2, OUTPUT); 
+  // pinMode(motorB1, OUTPUT); 
+  // pinMode(motorB2, OUTPUT);
+  
+  // Configure the motor driver.
+  leftMotor = new CytronMD(PWM_PWM, motorA1, motorA2);  
+  rightMotor = new CytronMD(PWM_PWM, motorB1, motorB2); 
+  
+  Serial.printf("Left motor pins %d, %d \n", motorA1, motorA2);
+  Serial.printf("Right motor pins %d, %d \n", motorB1, motorB2);
+  
 }
 
 //------------ SERVO -------------------
@@ -193,17 +209,17 @@ void configNemaStepper(int stepPin, int dirPin) {
   nema_stepper->setAcceleration(1100);
 }
 
-void controlStepper(int servoNumber, int angle) {
+// void controlStepper(int servoNumber, int angle) {
 
-  int targetStep = (angle * stepsPerRevolution) / 360;
-  int stepToMove = targetStep - currentStep;
-  myStepper.step(stepToMove); // move motor by calculated steps
-  currentStep = targetStep;
+//   int targetStep = (angle * stepsPerRevolution) / 360;
+//   int stepToMove = targetStep - currentStep;
+//   myStepper.step(stepToMove); // move motor by calculated steps
+//   currentStep = targetStep;
     
-  Serial.print("Moved stepper to angle: ");
-  Serial.println(angle);
+//   Serial.print("Moved stepper to angle: ");
+//   Serial.println(angle);
 
-}
+// }
 
 void controlNemaStepper(int stepperNum, int angle) {
 
