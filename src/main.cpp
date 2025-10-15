@@ -7,6 +7,7 @@
 
 #include <serialHandler.h>
 #include <atCommands.h>
+#include <wifiInit.h>
 
 // Binu Udayakumar binu@dronasys.com
 // UI tools can be accessed at https://binuud.com
@@ -17,7 +18,7 @@ void setup() {
   
   Serial.begin(115200);
   Serial.println("Setup Begin...");
-
+  delay(1000); // wait for serial monitor initialization
   // load preferences from EEPROM
   // this has to be called first before any other initiations
   // since we are storing pinout information here
@@ -26,12 +27,16 @@ void setup() {
   // now initialize IO devices with the device information loaded from above.
   initializeIODevices(devicePrefs.devices);
 
+  // init wifi
+  initWifi(devicePrefs.config.wifi_ssid, devicePrefs.config.wifi_password);
+
   serialHandler.help(); // print al the AT-Commands
 
   setupBle();
 
   Serial.println("Setup Done...");
   Serial.println("Listening for serial Input...");
+
 }
 
 
@@ -50,4 +55,6 @@ void loop() {
   // run stepper, motors and servo
   loopActuator();
   // delay(10);
+
+  simpleHelloWorld();
 }

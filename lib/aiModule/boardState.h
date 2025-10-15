@@ -169,9 +169,9 @@ public:
     }
 
 
-    bool loadIODevice(String devinceName, ConnectedIO& io) {
+    bool loadIODevice(String deviceName, ConnectedIO& io) {
         
-        String prefix = devinceName;
+        String prefix = deviceName;
         begin();
 
         io.dev = (DeviceCategory)preferences.getInt((prefix + "_dev").c_str(), 0);
