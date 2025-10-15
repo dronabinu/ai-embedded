@@ -10,6 +10,7 @@
 const char *ssid = "golgoppa";
 const char *password = "treRAG$12zzz";
 
+// DFROBOT ESP32S3 Dev Module
 
 void startCameraServer();
 void setupLedFlash();

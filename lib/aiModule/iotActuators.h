@@ -5,26 +5,9 @@
 #include <HardwareSerial.h>
 #include <CytronMotorDriver.h>
 #include <iotCmd.h>
-#include <Stepper.h>
+
 #include <AccelStepper.h>
 #include <boardState.h>
-
-// #define LEFT_FORWARD_PIN    19  // Built-in LED is usually at GPIO2
-// #define LEFT_BACKWARD_PIN   18  // Built-in LED is usually at GPIO2
-// #define RIGHT_FORWARD_PIN    5  // Built-in LED is usually at GPIO2
-// #define RIGHT_BACKWARD_PIN   17  // Built-in LED is usually at GPIO2
-
-// Define stepper motor control pins
-// #define IN1 19
-// #define IN2 18
-// #define IN3 5
-// #define IN4 17
-
-// NEMA STEPPER WITH TB6600 (3PIN, 3V Enable)
-
-// #define TB6600_STEP_PIN 33
-// #define TB6600_DIR_PIN 32
-// #define TB6600_ENABLE_PIN 16
 
 #define RGB_PIN 2  // Built-in LED is usually at GPIO2
 
