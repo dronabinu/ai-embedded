@@ -1,32 +1,19 @@
 #ifndef CAMERA_INIT_H
 #define CAMERA_INIT_H
 
-#define CAMERA_ENABLED 1 // if camera is enabled set to 1, else set to 0
-
-#if CAMERA_ENABLED
 
 static const char *TAG = "camera_httpd";
 
 // #include "esp32-hal-ledc.h"
 #include "esp_camera.h"
 #include "esp_log.h"
+#include "esp_http_server.h"
+#include "camera_pins.h"
 
-#define PWDN_GPIO_NUM     -1
-#define RESET_GPIO_NUM    -1
-#define XCLK_GPIO_NUM     5
-#define Y9_GPIO_NUM       4
-#define Y8_GPIO_NUM       6
-#define Y7_GPIO_NUM       7
-#define Y6_GPIO_NUM       14
-#define Y5_GPIO_NUM       17
-#define Y4_GPIO_NUM       21
-#define Y3_GPIO_NUM       18
-#define Y2_GPIO_NUM       16
-#define VSYNC_GPIO_NUM    1
-#define HREF_GPIO_NUM     2
-#define PCLK_GPIO_NUM     15
-#define SIOD_GPIO_NUM  8
-#define SIOC_GPIO_NUM  9
+
+
+
+
 
 // Enable LED FLASH setting
 #define CONFIG_LED_ILLUMINATOR_ENABLED 1
@@ -35,6 +22,7 @@ static const char *TAG = "camera_httpd";
 
 void initCamera();
 static esp_err_t stream_handler(httpd_req_t *req);
+esp_err_t options_handler(httpd_req_t *req);
 
 void initCamera(){
   camera_config_t config;
@@ -108,6 +96,15 @@ void initCamera(){
 
 httpd_handle_t camera_httpd = NULL;
 
+esp_err_t options_handler(httpd_req_t *req) {
+  httpd_resp_set_type(req, "multipart/x-mixed-replace; boundary=frame");
+  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+  httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "*");
+  httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "*"); // Add any custom headers your client might send
+  httpd_resp_sendstr(req, ""); // Send an empty response for OPTIONS
+  return ESP_OK;
+}
+
 static esp_err_t stream_handler(httpd_req_t *req){
     camera_fb_t * fb = NULL;
     esp_err_t res = ESP_OK;
@@ -115,12 +112,22 @@ static esp_err_t stream_handler(httpd_req_t *req){
     uint8_t * _jpg_buf = NULL;
     char part_buf[64];
 
+    // Add CORS header to allow all origins
+    // httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
+    // httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    // httpd_resp_set_status(req, "200");
+    // httpd_resp_sendstr_chunk(req, "\n");
+
+    // Add CORS header to allow all origins
+
+
     // Set multipart HTTP response headers
     res = httpd_resp_set_type(req, "multipart/x-mixed-replace; boundary=frame");
+    
     if(res != ESP_OK) {
         return res;
     }
-
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); // Enable CORS
     while(true){
         fb = esp_camera_fb_get();
         if (!fb) {
@@ -197,11 +204,20 @@ static httpd_handle_t start_camera_server(){
             .user_ctx = NULL
         };
         httpd_register_uri_handler(server, &stream_uri);
+
+        httpd_uri_t options_uri = {
+            .uri = "/stream", // Or the specific URI your client targets
+            .method = HTTP_OPTIONS,
+            .handler = options_handler,
+            .user_ctx = NULL
+        };
+        httpd_register_uri_handler(server, &options_uri);
+
+        
     }
 
     return server;
 }
 
-#endif // if camera enabled
 
 #endif // CAMERA_INIT_H
