@@ -56,7 +56,7 @@ class MyCallbacks : public BLECharacteristicCallbacks {
 void setupBle() {
 
   // Create the BLE Device
-  BLEDevice::init("Brain Robot");
+  BLEDevice::init("BrainRobotCam");
 
   // Create the BLE Server
   pServer = BLEDevice::createServer();
