@@ -1,10 +1,20 @@
 
-#define CAMERA_ENABLED 1 // if camera is enabled set to 1, else set to 0
+#define CAMERA_ENABLED 0 // if camera is enabled set to 1, else set to 0
 #define BLUETOOTH_ENABLED 1 // if bluetooth is enabled
+#define WIFI_ENABLED 0 // if bluetooth is enabled
+#define CAR_NOSTEERING 0 // if 4 motor car is enabled
+#define CAR_STEERING 1 // if car steering is required (turn and drive motor)
 
 #include <HardwareSerial.h>
 #include <iotCmd.h>
+
+#if CAR_NOSTEERING
 #include <iotActuators.h>
+#endif
+
+#if CAR_STEERING
+#include <iotCarSteeringActuators.h>
+#endif
 
 #if BLUETOOTH_ENABLED 
 #include <bleConfig.h> 
@@ -12,7 +22,10 @@
 
 #include <serialHandler.h>
 #include <atCommands.h>
+
+#if WIFI_ENABLED
 #include <wifiInit.h>
+#endif
 
 #if CAMERA_ENABLED 
 #include <cameraInit.h>
@@ -41,16 +54,19 @@ void setup() {
   initializeIODevices(devicePrefs.devices);
 
   // init wifi
+#if WIFI_ENABLED  
   Serial.println("Initializing wifi...");
   initWifi(devicePrefs.config.wifi_ssid, devicePrefs.config.wifi_password);
 
-  serialHandler.help(); // print al the AT-Commands
+  
+#endif
 
 #if BLUETOOTH_ENABLED    
   Serial.println("Setting Bluetooth...");
   setupBle();
 #endif
 
+  
   // if CAMERA is enabled, init the camera
 #if CAMERA_ENABLED 
   Serial.println("Setting Camera...");
@@ -58,6 +74,7 @@ void setup() {
   camera_httpd = start_camera_server();
 #endif
 
+  serialHandler.help(); // print al the AT-Commands
   Serial.println("Setup Done...");
   Serial.println("Listening for serial Input...");
 

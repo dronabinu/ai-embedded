@@ -55,8 +55,12 @@ class MyCallbacks : public BLECharacteristicCallbacks {
 
 void setupBle() {
 
+  // if (bleName.length() == 0) {
+  //   bleName = "BrainCamRover";
+  //   Serial.printf("Ble name not set, using %s", bleName);
+  // }
   // Create the BLE Device
-  BLEDevice::init("BrainRobotCam");
+  BLEDevice::init("BrainCamRover");
 
   // Create the BLE Server
   pServer = BLEDevice::createServer();
