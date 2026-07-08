@@ -29,6 +29,7 @@ enum SubCmdEnum {
   SubCmdEnum_move_turn_right,
   SubCmdEnum_move_strafe_left,
   SubCmdEnum_move_strafe_right,
+  SubCmdEnum_move_center_steer,
   SubCmdEnum_move_stop,
 
   SubCmdEnum_servo_angle,

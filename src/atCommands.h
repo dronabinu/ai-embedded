@@ -8,6 +8,7 @@
 
 // Forward declarations of command callbacks
 
+
 void atCmdWifiSSID(const String& args);
 void atCmdWifiPass(const String& args);
 
@@ -24,6 +25,8 @@ void atCmdStepperAngle(const String& args);
 void atCmdServoAngle(const String& args);
 
 void atCmdClearStorage(const String& args);
+
+void atReadBleName();
 
 void atReadWifiSSID();
 void atReadWifiPass();
@@ -46,7 +49,9 @@ void atReadServoAngle();
 AtCommand atCommands[] = {
 
     // this is prefix match, commands coming first, will take precendence in prefix match
-    
+    // {"BLE_NAME", "Config BLE Name, eg: AT+BLE_NAME=[BLE-NAME]", atCmdBleName, atReadBleName},
+    // {"BLE_PASS", "Config BLE Pass, eg: AT+BLE_PASS=[BLE-PASSWORD]", atCmdBlePass, atReadBlePass},
+
     {"WIFI_SSID", "Config Wifi SSID, eg: AT+WIFI_SSID=[WIFI-SSID]", atCmdWifiSSID, atReadWifiSSID},
     {"WIFI_PASS", "Config Wifi SSID, eg: AT+WIFI_PASS=[WIFI-PASS]", atCmdWifiPass, atReadWifiPass},
 
@@ -56,7 +61,7 @@ AtCommand atCommands[] = {
 
     {"LED", "Config Led Pin, eg: AT+LED=[LED NUMBER], [LED_PIN]" , atCmdLedConfig, atReadLedConfig},
 
-    {"MOVE", "Move car, AT+MOVE=[W (Forward),A(Left),S(Back),D(Back),Z(Stop)], SPEED", atCmdCarMove, atReadCarMove},
+    {"MOVE", "Move car, AT+MOVE=[W (Forward),A(Left),S(Back),D(Right),Z(Stop)], SPEED", atCmdCarMove, atReadCarMove},
 
     {"STP_ANGLE", "Move stepper to angle, eg: move stepper 1 to angle 20, AT+STP_ANGLE=1,20", atCmdStepperAngle, atReadStepperAngle},
     {"SRV_ANGLE", "Move servo to angle, eg: move servo 1 to angle 20, AT+SRV_ANGLE=1,20", atCmdServoAngle, atReadServoAngle},
@@ -77,6 +82,16 @@ void atCmdAngle(const String& params) {
         Serial.println("ERROR: Invalid angle (0-360)");
     }
 }
+
+// void atCmdBleName(const String& params) {
+//     if (params.length() > 0) {
+//         devicePrefs.config.ble_name = params;
+//         devicePrefs.saveBle();
+//         Serial.printf("atCmdBleName new name %s , OK\n", params);
+//     } else {
+//         Serial.println("ERROR: BLE name required");
+//     }
+// }
 
 void atCmdWifiSSID(const String& params) {
     if (params.length() > 0) {
@@ -274,6 +289,10 @@ void atReadStepperAngle() {
 void atReadServoAngle() {
     Serial.println("Stepper angle : ");    
 }
+
+// void atReadBleName() {
+//     Serial.printf("Ble name : %s \n", devicePrefs.config.ble_name);    
+// }
 
 void atReadWifiSSID() {
     Serial.printf("Wifi ssid : %s \n", devicePrefs.config.wifi_ssid);    

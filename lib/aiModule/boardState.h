@@ -26,9 +26,13 @@ struct ConnectedIO {
 
 struct DeviceConfig {
     String id;                      // name given to device
+    
+    String ble_name;                // name for the BLE server device
+    String ble_password;            // TBD, way to secure BLE cnnection 
+    
     String wifi_ssid;               
     String wifi_password;
-    String ble_password;            // TBD, way to secure BLE cnnection 
+
     String device_names[MAX_ITEMS];   // list of connectect IO to the ESP32
     size_t dev_count; // number of devices
 };
@@ -43,7 +47,7 @@ public:
     ConnectedIO devices[MAX_ITEMS];
 
     DevicePreference(const char* ns) {
-        config = {"", "", "", "", {}, 0};
+        config = {"", "", "", "", "", {}, 0};
         namespaceName = String(ns);
     }
 
@@ -70,6 +74,7 @@ public:
 
     void saveBle() {
         begin();
+        preferences.putString("ble_name", config.ble_name);
         preferences.putString("ble_password", config.ble_password);
         end();
     }
@@ -94,9 +99,13 @@ public:
     DeviceConfig loadConfig() {
 
         begin();
+
+        config.ble_name = preferences.getString("ble_name", "");
         config.ble_password = preferences.getString("ble_password", "");
+
         config.wifi_ssid = preferences.getString("wifi_ssid", "");
         config.wifi_password = preferences.getString("wifi_password", "");
+
         config.dev_count = preferences.getInt("dev_count", 0);
 
         String connectedDevices = preferences.getString("device_names", "");
