@@ -34,8 +34,8 @@ class MyCallbacks : public BLECharacteristicCallbacks {
 
     IotCommand cmd;
     decodeCommand(data, &cmd);
-    // debugIotCommand(&cmd);
-    
+    debugIotCommand(&cmd);
+    Serial.println(ESP.getFreeHeap());
     if (cmd.cmd == DeviceCategory_servo) {
       // handle servo
       controlServo(cmd.identifier, cmd.value1);
@@ -48,7 +48,7 @@ class MyCallbacks : public BLECharacteristicCallbacks {
       // controlStepper(cmd.identifier, cmd.value1);
       controlNemaStepper(cmd.identifier, cmd.value1);
     } 
-    
+    Serial.println(ESP.getFreeHeap());
   }
 };
 
