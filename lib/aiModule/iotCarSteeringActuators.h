@@ -42,7 +42,7 @@ int currentStep = 0; // track current step position
 // will be deprecated
 int g_speed = 125; 
 int g_turn_strength = 125;
-int g_max_pwm = 250;
+int g_max_pwm = 200;
 
 // Number of servos
 const int servoCount = 3;
@@ -90,21 +90,30 @@ void initializeIODevices(ConnectedIO devices[]) {
 }
 
 void setSpeed(int speed) {
-  if (speed >= 0 && speed <= 100) {
+  if (speed >= -100 && speed <= 100) {
     g_speed = (speed / 100.0) * g_max_pwm;
     Serial.printf("\n Setting speed %d\n", g_speed);
   } else {
-    Serial.printf("\n Speed not in limit 0 -- 100 %d", speed);
+    Serial.printf("\n Speed not in limit -100 -- 100 %d", speed);
   }
 }
 
 void setTurnStrength(int turnStrength) {
-  if (turnStrength >= 0 && turnStrength <= 100) {
+  if (turnStrength >= -100 && turnStrength <= 100) {
     g_turn_strength = (turnStrength / 100.0) * g_max_pwm;
     Serial.printf("\n Setting turnStrength %d\n", g_turn_strength);
   } else {
-    Serial.printf("\n turnStrength not in limit 0 -- 100 %d", turnStrength);
+    Serial.printf("\n turnStrength not in limit -100 -- 100 %d", turnStrength);
   }
+}
+
+void move(int velocity, int turnStrength) {
+  alterInBuiltLed(HIGH);
+  setSpeed(velocity);
+  setTurnStrength(turnStrength);
+  driveMotor->setSpeed(g_speed);
+  turnMotor->setSpeed(g_turn_strength); // negative for left motor, and positive for right motor
+  Serial.println("********** Move with speed, turn value");
 }
 
 void moveForward() {
@@ -121,13 +130,13 @@ void moveBackward() {
 
 void turnLeft() {
   alterInBuiltLed(HIGH);
-  turnMotor->setSpeed(g_turn_strength);
+  turnMotor->setSpeed(-g_turn_strength);
   Serial.println("********** Turn Left");
 }
 
 void turnRight() {
   alterInBuiltLed(HIGH);
-  turnMotor->setSpeed(-g_turn_strength);
+  turnMotor->setSpeed(g_turn_strength);
   Serial.println("********** Turn Right");
 }
 
@@ -139,6 +148,7 @@ void centerSteer() {
 
 void carStop() {
   setSpeed(0);
+  setTurnStrength(0);
   alterInBuiltLed(LOW);
   driveMotor->setSpeed(LOW);
   turnMotor->setSpeed(LOW);
@@ -147,11 +157,12 @@ void carStop() {
 
 void controlpadWithSpeed(IotCommand* cmd) {
   int speedInt =  cmd->value1;
-  
-  if (cmd->subcmd == SubCmdEnum_move_forward) { moveForward();setSpeed(speedInt);}
-  else if (cmd->subcmd == SubCmdEnum_move_backward) {moveBackward();setSpeed(speedInt);}
-  else if (cmd->subcmd == SubCmdEnum_move_turn_left) {turnLeft();setTurnStrength(speedInt);}
-  else if (cmd->subcmd == SubCmdEnum_move_turn_right) {turnRight();setTurnStrength(speedInt);}
+  int turnValue  =  cmd->value2;
+  if (cmd->subcmd == SubCmdEnum_move) { move(speedInt, turnValue); }
+  else if (cmd->subcmd == SubCmdEnum_move_forward) { setSpeed(speedInt);moveForward();}
+  else if (cmd->subcmd == SubCmdEnum_move_backward) {setSpeed(speedInt);moveBackward();}
+  else if (cmd->subcmd == SubCmdEnum_move_turn_left) {setTurnStrength(speedInt);turnLeft();}
+  else if (cmd->subcmd == SubCmdEnum_move_turn_right) {setTurnStrength(speedInt);turnRight();}
   else if (cmd->subcmd == SubCmdEnum_move_center_steer) centerSteer();
   else if (cmd->subcmd == SubCmdEnum_move_stop) carStop();
 }

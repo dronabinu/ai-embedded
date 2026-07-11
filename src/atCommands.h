@@ -56,15 +56,15 @@ AtCommand atCommands[] = {
     {"WIFI_PASS", "Config Wifi SSID, eg: AT+WIFI_PASS=[WIFI-PASS]", atCmdWifiPass, atReadWifiPass},
 
     {"CAR", "Config Car control Pins, eg: AT+CAR=[MotorLeft+], [MotorLeft-], [MotorRight+], [MotorRight-]" , atCmdCarConfig, atReadCarConfig},
-    {"STEPPER", "Config Stepper Pin, eg: AT+STEPPER=[STEPPER NUMBER], [STEPPER_PIN, DIR_PIN]" , atCmdStepperConfig, atReadStepperConfig},
-    {"SERVO", "Config Stepper Pin, eg: AT+SERVO=[STEPPER NUMBER], [STEPPER_PIN, DIR_PIN]" , atCmdServoConfig, atReadServoConfig},
+    {"STEPPER", "Config Stepper Pin, AT+STEPPER=[STEPPER NUMBER], [STEPPER_PIN, DIR_PIN]" , atCmdStepperConfig, atReadStepperConfig},
+    {"SERVO", "Config Stepper Pin, AT+SERVO=[STEPPER NUMBER], [STEPPER_PIN, DIR_PIN]" , atCmdServoConfig, atReadServoConfig},
 
-    {"LED", "Config Led Pin, eg: AT+LED=[LED NUMBER], [LED_PIN]" , atCmdLedConfig, atReadLedConfig},
+    {"LED", "Config Led Pin, AT+LED=[LED NUMBER], [LED_PIN]" , atCmdLedConfig, atReadLedConfig},
 
     {"MOVE", "Move car, AT+MOVE=[W (Forward),A(Left),S(Back),D(Right),Z(Stop)], SPEED", atCmdCarMove, atReadCarMove},
 
-    {"STP_ANGLE", "Move stepper to angle, eg: move stepper 1 to angle 20, AT+STP_ANGLE=1,20", atCmdStepperAngle, atReadStepperAngle},
-    {"SRV_ANGLE", "Move servo to angle, eg: move servo 1 to angle 20, AT+SRV_ANGLE=1,20", atCmdServoAngle, atReadServoAngle},
+    {"STP_ANGLE", "Move stepper 1 to angle N, AT+STP_ANGLE=1,[Angle]", atCmdStepperAngle, atReadStepperAngle},
+    {"SRV_ANGLE", "Move servo 1 to angle N, AT+SRV_ANGLE=1,[Angle]", atCmdServoAngle, atReadServoAngle},
 
     {"CLEAR_STORAGE", "Clear all stored values", atCmdClearStorage, nullptr}
 
