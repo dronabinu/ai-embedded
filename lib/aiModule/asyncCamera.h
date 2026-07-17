@@ -1,260 +1,166 @@
-#ifndef CAMERA_INIT_H
-#define CAMERA_INIT_H
+#ifndef ASYNC_CAMERA_SERVER_H
+#define ASYNC_CAMERA_SERVER_H
 
-#include <ESPAsyncWebServer.h>
-
-static const char *TAG = "camera_httpd";
-
-// #include "esp32-hal-ledc.h"
-#include "esp_camera.h"
 #include "esp_log.h"
-#include "camera_pins.h"
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <iotCarFixedSteering.h>
+#include <iotCmd.h>
 
-
-// Enable LED FLASH setting
-#define CONFIG_LED_ILLUMINATOR_ENABLED 1
-
+// Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
 
-void initCamera();
-static esp_err_t stream_handler(httpd_req_t *req);
-esp_err_t options_handler(httpd_req_t *req);
+const char* PARAM_INPUT_1 = "cmd";
+const char* PARAM_INPUT_2 = "subCmd";
+const char* PARAM_INPUT_3 = "identifier";
+const char* PARAM_INPUT_4 = "value1";
+const char* PARAM_INPUT_5 = "value2";
 
-void initCamera(){
-  camera_config_t config;
-  config.ledc_channel = LEDC_CHANNEL_0;
-  config.ledc_timer = LEDC_TIMER_0;
-  config.pin_d0 = Y2_GPIO_NUM;
-  config.pin_d1 = Y3_GPIO_NUM;
-  config.pin_d2 = Y4_GPIO_NUM;
-  config.pin_d3 = Y5_GPIO_NUM;
-  config.pin_d4 = Y6_GPIO_NUM;
-  config.pin_d5 = Y7_GPIO_NUM;
-  config.pin_d6 = Y8_GPIO_NUM;
-  config.pin_d7 = Y9_GPIO_NUM;
-  config.pin_xclk = XCLK_GPIO_NUM;
-  config.pin_pclk = PCLK_GPIO_NUM;
-  config.pin_vsync = VSYNC_GPIO_NUM;
-  config.pin_href = HREF_GPIO_NUM;
-  config.pin_sccb_sda = SIOD_GPIO_NUM;
-  config.pin_sccb_scl = SIOC_GPIO_NUM;
-  config.pin_pwdn = PWDN_GPIO_NUM;
-  config.pin_reset = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 20000000;
-  config.frame_size = FRAMESIZE_UXGA;
-  config.pixel_format = PIXFORMAT_JPEG;  // for streaming
-  //config.pixel_format = PIXFORMAT_RGB565; // for face detection/recognition
-  config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
-  config.fb_location = CAMERA_FB_IN_PSRAM;
-  config.jpeg_quality = 12;
-  config.fb_count = 1;
+// Boundary definition for MJPEG stream chunking
+#define PART_BOUNDARY "123456789000000000000987654321"
 
-  // if PSRAM IC present, init with UXGA resolution and higher JPEG quality
-  //                      for larger pre-allocated frame buffer.
-  if (config.pixel_format == PIXFORMAT_JPEG) {
-    if (psramFound()) {
-      config.jpeg_quality = 10;
-      config.fb_count = 2;
-      config.grab_mode = CAMERA_GRAB_LATEST;
-    } else {
-      // Limit the frame size when PSRAM is not available
-      config.frame_size = FRAMESIZE_SVGA;
-      config.fb_location = CAMERA_FB_IN_DRAM;
-    }
-  } else {
-    // Best option for face detection/recognition
-    config.frame_size = FRAMESIZE_240X240;
-  }
 
-  // camera init
-  esp_err_t err = esp_camera_init(&config);
-  if (err != ESP_OK) {
-    Serial.printf("Camera init failed with error 0x%x", err);
-    return;
-  }
-
-  sensor_t *s = esp_camera_sensor_get();
-  // initial sensors are flipped vertically and colors are a bit saturated
-  if (s->id.PID == OV3660_PID) {
-    s->set_vflip(s, 1);        // flip it back
-    s->set_brightness(s, 1);   // up the brightness just a bit
-    s->set_saturation(s, -2);  // lower the saturation
-  }
-  // drop down frame size for higher initial frame rate
-  if (config.pixel_format == PIXFORMAT_JPEG) {
-    s->set_framesize(s, FRAMESIZE_QVGA);
-  }
-
-  // set clk for camera (esp32 node hw 818)
-  int res = s->set_xclk(s, LEDC_TIMER_0, 30);
-//   setupLedFlash(LED_GPIO_NUM);
-
+// Helper function to add CORS headers to a response
+void addCORSHeaders(AsyncWebServerResponse *response) {
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    response->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    response->addHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
+void handleStream(AsyncWebServerRequest *request) {
+  AsyncWebServerResponse *response = request->beginChunkedResponse(_STREAM_CONTENT_TYPE, [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+    static camera_fb_t * fb = NULL;
+    static size_t _frame_len = 0;
+    static size_t _frame_sent = 0;
+    static enum { STREAM_START, STREAM_HEADER, STREAM_DATA, STREAM_END } _state = STREAM_START;
+    static char header_buf[128];
 
-httpd_handle_t camera_httpd = NULL;
+    size_t outLen = 0;
 
-esp_err_t options_handler(httpd_req_t *req) {
-  httpd_resp_set_type(req, "multipart/x-mixed-replace; boundary=frame");
-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-  httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "*");
-  httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "*"); // Add any custom headers your client might send
-  httpd_resp_sendstr(req, ""); // Send an empty response for OPTIONS
-  return ESP_OK;
-}
+    while (outLen < maxLen) {
+      switch (_state) {
+        case STREAM_START:
+          fb = esp_camera_fb_get();
+          if (!fb) {
+            Serial.println("Camera capture failed");
+            return 0; 
+          }
+          _frame_len = fb->len;
+          _frame_sent = 0;
+          _state = STREAM_HEADER;
+          // fall through
+          
+        case STREAM_HEADER: {
+          size_t blen = snprintf(header_buf, sizeof(header_buf), _STREAM_PART, _frame_len);
+          size_t avail = maxLen - outLen;
+          if (avail >= blen) {
+            memcpy(buffer + outLen, header_buf, blen);
+            outLen += blen;
+            _state = STREAM_DATA;
+          } else {
+            return outLen; // Handle memory buffer constraints safely
+          }
+        } // fall through
 
-static esp_err_t stream_handler(httpd_req_t *req){
-    camera_fb_t * fb = NULL;
-    esp_err_t res = ESP_OK;
-    size_t _jpg_buf_len = 0;
-    uint8_t * _jpg_buf = NULL;
-    char part_buf[64];
+        case STREAM_DATA: {
+          size_t avail = maxLen - outLen;
+          size_t remaining = _frame_len - _frame_sent;
+          size_t toSend = (remaining < avail) ? remaining : avail;
+          
+          memcpy(buffer + outLen, fb->buf + _frame_sent, toSend);
+          outLen += toSend;
+          _frame_sent += toSend;
 
-    // Add CORS header to allow all origins
-    // httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
-    // httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    // httpd_resp_set_status(req, "200");
-    // httpd_resp_sendstr_chunk(req, "\n");
-
-    // Add CORS header to allow all origins
-
-
-    // Set multipart HTTP response headers
-    res = httpd_resp_set_type(req, "multipart/x-mixed-replace; boundary=frame");
-    
-    if(res != ESP_OK) {
-        return res;
-    }
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); // Enable CORS
-    while(true){
-        fb = esp_camera_fb_get();
-        if (!fb) {
-            ESP_LOGE(TAG, "Camera capture failed");
-            res = ESP_FAIL;
-        } else {
-            _jpg_buf = fb->buf;
-            _jpg_buf_len = fb->len;
-
-            size_t hlen = snprintf(part_buf, 64, 
-                "--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n", (uint32_t)_jpg_buf_len);
-
-            // Send multipart frame header
-            res = httpd_resp_send_chunk(req, part_buf, hlen);
-            if(res == ESP_OK){
-                // Send JPEG frame
-                res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
-            }
-            if(res == ESP_OK){
-                // Send line break after frame
-                res = httpd_resp_send_chunk(req, "\r\n", 2);
-            }
+          if (_frame_sent == _frame_len) {
             esp_camera_fb_return(fb);
-            if(res != ESP_OK){
-                break;
-            }
+            fb = NULL;
+            _state = STREAM_END;
+          } else {
+            return outLen;
+          }
+        } // fall through
+
+        case STREAM_END: {
+          size_t blen = strlen(_STREAM_BOUNDARY);
+          size_t avail = maxLen - outLen;
+          if (avail >= blen) {
+            memcpy(buffer + outLen, _STREAM_BOUNDARY, blen);
+            outLen += blen;
+            _state = STREAM_START; 
+          } else {
+            return outLen;
+          }
+          break;
         }
+      }
     }
-    return res;
+    return outLen;
+  });
+
+  // Prevent browser caching issues
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  request->send(response);
 }
 
-static esp_err_t index_handler(httpd_req_t *req){
-    const char* html = "<html><body><h1>ESP32-CAM Stream</h1><img src=\"/stream\"/></body></html>";
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, html, strlen(html));
-    return ESP_OK;
-}
+void initAsyncServer() {
+
+    // Route for root / web page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/html", "<div>This is a test</div>");
+  });
+
+  server.on("/update", HTTP_OPTIONS, [](AsyncWebServerRequest *request) {
+        AsyncWebServerResponse *response = request->beginResponse(204); // 204 No Content
+        addCORSHeaders(response);
+        request->send(response);
+    });
 
 
-static esp_err_t hello_handler(httpd_req_t *req){
-    const char* html = "<html><body><h1>Hello World</h1></body></html>";
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, html, strlen(html));
-    return ESP_OK;
-}
+  // Send a GET request to <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
+  server.on("/update", HTTP_GET, [] (AsyncWebServerRequest *request) {
 
-static esp_err_t carcontrol_handler(httpd_req_t *req){
+    // GET input1 value on <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
+    if (request->hasParam(PARAM_INPUT_1) 
+        && request->hasParam(PARAM_INPUT_2) 
+         && request->hasParam(PARAM_INPUT_3) 
+          && request->hasParam(PARAM_INPUT_4) 
+           && request->hasParam(PARAM_INPUT_5) 
+    ) {
+      String inpCmd = request->getParam(PARAM_INPUT_1)->value();
+      String subCmd = request->getParam(PARAM_INPUT_2)->value();
+      String identifier = request->getParam(PARAM_INPUT_3)->value();
+      String value1 = request->getParam(PARAM_INPUT_4)->value();
+      String value2 = request->getParam(PARAM_INPUT_5)->value();
+      Serial.printf("GPIO: cmd %s : subcmd %s id (%s) val1:(%s) val2:(%s)\n", subCmd, subCmd, identifier, value1, value2);
 
-    char buf[128];
-    char dir_param[32] = "stop";
-    char speed_param[32] = "255";
-    int speedVal = 255;
-
-    // Read the query string from the URL
-    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
-        // Extract 'dir' parameter
-        if (httpd_query_key_value(buf, "dir", dir_param, sizeof(dir_param)) != ESP_OK) {
-            strcpy(dir_param, "stop");
-        }
-        // Extract 'speed' parameter
-        if (httpd_query_key_value(buf, "speed", speed_param, sizeof(speed_param)) == ESP_OK) {
-            speedVal = atoi(speed_param);
-            speedVal = constrain(speedVal, 0, 255);
-        }
+        IotCommand cmd;
+        cmd.cmd = static_cast<DeviceCategory>(inpCmd.toInt());
+        cmd.subcmd = static_cast<SubCmdEnum>(subCmd.toInt());
+        cmd.identifier = identifier.toInt();
+        cmd.value1 = value1.toInt();
+        cmd.value2 = value2.toInt();
+         debugIotCommand(&cmd);
+        controlpadWithSpeed(&cmd);
     }
-    Serial.printf("Dir and speed %s:%s", dir_param, speed_param);
-    return ESP_OK;
-}
+    else {
 
-static httpd_handle_t start_camera_server(){
-    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.server_port = 80;
-
-    httpd_handle_t server = NULL;
-    if (httpd_start(&server, &config) == ESP_OK){
-        httpd_uri_t index_uri = {
-            .uri = "/",
-            .method = HTTP_GET,
-            .handler = index_handler,
-            .user_ctx = NULL
-        };
-        httpd_register_uri_handler(server, &index_uri);
-
-        httpd_uri_t hello_uri = {
-            .uri = "/hello",
-            .method = HTTP_GET,
-            .handler = hello_handler,
-            .user_ctx = NULL
-        };
-        httpd_register_uri_handler(server, &hello_uri);
-
-        httpd_uri_t stream_uri = {
-            .uri = "/stream",
-            .method = HTTP_GET,
-            .handler = stream_handler,
-            .user_ctx = NULL
-        };
-        httpd_register_uri_handler(server, &stream_uri);
-
-        httpd_uri_t stream_options_uri = {
-            .uri = "/stream", // Or the specific URI your client targets
-            .method = HTTP_OPTIONS,
-            .handler = options_handler,
-            .user_ctx = NULL
-        };
-
-        // for car controls
-        httpd_register_uri_handler(server, &stream_options_uri);
-
-        httpd_uri_t car_control_uri = {
-            .uri = "/carcontrol",
-            .method = HTTP_GET,
-            .handler = carcontrol_handler,
-            .user_ctx = NULL
-        };
-        httpd_register_uri_handler(server, &car_control_uri);
-
-        httpd_uri_t car_control_options_uri = {
-            .uri = "/carcontrol", // Or the specific URI your client targets
-            .method = HTTP_OPTIONS,
-            .handler = options_handler,
-            .user_ctx = NULL
-        };
-        httpd_register_uri_handler(server, &car_control_options_uri);
-        
     }
+    
 
-    return server;
+    
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"success\"}");
+    addCORSHeaders(response);
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(response);
+  });
+
+  server.on("/stream", HTTP_GET, [](AsyncWebServerRequest *request){
+    handleStream(request);
+  });
+ 
+
+  // Start server
+  server.begin();
 }
 
-
-#endif // CAMERA_INIT_H
+#endif // ASYNC_CAMERA_SERVER_H
