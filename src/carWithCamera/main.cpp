@@ -2,19 +2,24 @@
 #define CAMERA_ENABLED 1 // if camera is enabled set to 1, else set to 0
 #define BLUETOOTH_ENABLED 0 // if bluetooth is enabled
 #define WIFI_ENABLED 1 // if bluetooth is enabled
-#define CAR_NOSTEERING 1 // if 4 motor car is enabled
-#define CAR_STEERING 0 // if car steering is required (turn and drive motor)
+#define CAR_FIXED_STEERING 1 // if 4 motor car is enabled
+#define CAR_FLUID_STEERING 0 // if car steering is required (turn and drive motor)
 #define CAR_SERVO 0 // if servo moto is needed
+#define ACTUATORS 0 // if servo, stepper are defined
 
 #include <HardwareSerial.h>
 #include <iotCmd.h>
 
-#if CAR_NOSTEERING
+#if ACTUATORS
 #include <iotActuators.h>
 #endif
 
-#if CAR_STEERING
-#include <iotCarSteeringActuators.h>
+#if CAR_FIXED_STEERING
+#include <iotCarFixedSteering.h>
+#endif
+
+#if CAR_FLUID_STEERING
+#include <iotCarFluidSteering.h>
 #endif
 
 #if BLUETOOTH_ENABLED 
@@ -30,7 +35,8 @@
 
 #if CAMERA_ENABLED 
 #include <cameraInit.h>
-#include <blockingCameraServer.h>
+// #include <blockingCameraServer.h>
+#include <asyncCamera.h>
 #endif
 
 
@@ -56,12 +62,14 @@ void setup() {
   Serial.println("Initializing Devices...");
   initializeIODevices(devicePrefs.devices);
 
-  // init wifi
+#if ACTUATORS
+  initializeActuatorIODevices();
+#endif
+
+// init wifi
 #if WIFI_ENABLED  
   Serial.println("Initializing wifi...");
   initWifi(devicePrefs.config.wifi_ssid, devicePrefs.config.wifi_password);
-
-  
 #endif
 
 #if BLUETOOTH_ENABLED    
@@ -74,7 +82,7 @@ void setup() {
 #if CAMERA_ENABLED 
   Serial.println("Setting Camera...");
   initCamera();
-  camera_httpd = start_camera_server();
+  initAsyncServer();
 #endif
 
   serialHandler.help(); // print al the AT-Commands
@@ -98,7 +106,7 @@ void loop() {
   loopBle();
 #endif  
 
-#if CAR_SERVO
+#if ACTUATORS
   // run stepper, motors and servo
   loopActuator();
 #endif  

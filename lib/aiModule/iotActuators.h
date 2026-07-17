@@ -14,7 +14,6 @@
 // function headers
 void configServo(int servoNum, int  servoPin);
 void configNemaStepper(int stepPin, int dirPin); 
-void configCar(int motorA1, int  motorA2, int motorB1, int  motorB2);
 
 bool NEMA_ACTIVE = false;
 
@@ -22,10 +21,6 @@ bool NEMA_ACTIVE = false;
 // TB6600_STEP_PIN Digital 5 (CLK), direction Digital TB6600_DIR_PIN 17 (CW), 
 //AccelStepper nema_stepper(1, TB6600_STEP_PIN, TB6600_DIR_PIN);
 AccelStepper* nema_stepper = nullptr;
-
-// Car motors
-CytronMD* leftMotor = nullptr;
-CytronMD* rightMotor = nullptr;
 
 const int nema_stepsPerRevolution = 1600; // Full steps per revolution of your motor (e.g., 200 for 1.8 degree stepper)
 long nema_currentStep = 0;
@@ -36,11 +31,6 @@ const int stepsPerRevolution = 2048; // for 28BYJ-48
 int currentStep = 0; // track current step position
 
 
-// when we started, we had a different UI command flow to trigger speed. Now speed and movement is via same IotCmd object
-// will be deprecated
-int g_speed = 125; 
-int g_max_pwm = 250;
-
 // Number of servos
 const int servoCount = 3;
 
@@ -49,15 +39,15 @@ const int servoPins[servoCount] = {27, 26, 27}; // servo pins
 // Create Servo objects
 Servo servos[servoCount];
 
-// Alter the state of the onboard led
-// To be used when there is a command sent on bluetooth
-void alterInBuiltLed(int state) {
-#ifdef RGB_PIN
-  digitalWrite(RGB_PIN, state);
-#endif
-}
+// // Alter the state of the onboard led
+// // To be used when there is a command sent on bluetooth
+// void alterInBuiltLed(int state) {
+// #ifdef RGB_PIN
+//   digitalWrite(RGB_PIN, state);
+// #endif
+// }
 
-void initializeIODevices(ConnectedIO devices[]) {
+void initializeActuatorIODevices(ConnectedIO devices[]) {
 
   int servoCount = 1;
   // iterate through all the devices
@@ -70,11 +60,7 @@ void initializeIODevices(ConnectedIO devices[]) {
       // configure stepper
       configServo(servoCount, io.pin[0]);
       servoCount++;
-    } else if (io.dev == DeviceCategory_led) {
-      pinMode(io.pin[0], OUTPUT);  // Initialize the LED pin as output
-    } else if (io.dev == DeviceCategory_car_2_wheel_module) {
-      configCar(io.pin[0], io.pin[1], io.pin[2], io.pin[3]);
-    }
+    } 
   }
     
   pinMode(RGB_PIN, OUTPUT);  // Initialize the LED pin as output
@@ -85,78 +71,6 @@ void initializeIODevices(ConnectedIO devices[]) {
   // nema setup
 
 }
-
-void setSpeed(int speed) {
-  if (speed >= 0 && speed <= 100) {
-    g_speed = (speed / 100.0) * g_max_pwm;
-    Serial.printf("\n Setting speed %d\n", g_speed);
-  } else {
-    Serial.printf("\n Speed not in limit 0 -- 100 %d", speed);
-  }
-}
-
-void moveForward() {
-  alterInBuiltLed(HIGH);
-  leftMotor->setSpeed(g_speed);
-  rightMotor->setSpeed(g_speed);
-  Serial.println("********** Move Forward");
-}
-
-void moveBackward() {
-  // alterInBuiltLed(HIGH);
-  leftMotor->setSpeed(-g_speed);
-  rightMotor->setSpeed(-g_speed);
-  Serial.println("********** Move Backward");
-}
-
-void turnLeft() {
-  alterInBuiltLed(HIGH);
-  leftMotor->setSpeed(-g_speed);
-  rightMotor->setSpeed(g_speed);
-  Serial.println("********** Turn Left");
-}
-
-void turnRight() {
-  alterInBuiltLed(HIGH);
-  leftMotor->setSpeed(g_speed);
-  rightMotor->setSpeed(-g_speed);
-  Serial.println("********** Turn Right");
-}
-
-void carStop() {
-  setSpeed(0);
-  alterInBuiltLed(LOW);
-  leftMotor->setSpeed(LOW);
-  rightMotor->setSpeed(LOW);
-  Serial.println("********** Car Stop");
-}
-
-void controlpadWithSpeed(IotCommand* cmd) {
-  int speedInt =  cmd->value1;
-  setSpeed(speedInt);
-  if (cmd->subcmd == SubCmdEnum_move_forward) moveForward();
-  else if (cmd->subcmd == SubCmdEnum_move_backward) moveBackward();
-  else if (cmd->subcmd == SubCmdEnum_move_turn_left) turnLeft();
-  else if (cmd->subcmd == SubCmdEnum_move_turn_right) turnRight();
-  else if (cmd->subcmd == SubCmdEnum_move_stop) carStop();
-}
-
-//------------ CAR ---------------------
-void configCar(int motorA1, int  motorA2, int motorB1, int  motorB2) {
-  // pinMode(motorA1, OUTPUT); 
-  // pinMode(motorA2, OUTPUT); 
-  // pinMode(motorB1, OUTPUT); 
-  // pinMode(motorB2, OUTPUT);
-  
-  // Configure the motor driver.
-  leftMotor = new CytronMD(PWM_PWM, motorA1, motorA2);  
-  rightMotor = new CytronMD(PWM_PWM, motorB1, motorB2); 
-  
-  Serial.printf("Left motor pins %d, %d \n", motorA1, motorA2);
-  Serial.printf("Right motor pins %d, %d \n", motorB1, motorB2);
-  
-}
-
 //------------ SERVO -------------------
 
 void configServo(int servoNum, int  servoPin) {
@@ -178,10 +92,6 @@ void controlServo(int servoNumber, int angle) {
   servos[servoNumber].write(angle);
 }
 
-void controlLed(int ledPin, int value) {
-  Serial.printf("Setting Led Pin %d, value %d \n", ledPin, value);
-  digitalWrite(ledPin, value);
-}
 
 //------------ STEPPER -------------------
 

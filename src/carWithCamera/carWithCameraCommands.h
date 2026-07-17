@@ -2,7 +2,10 @@
 
 #include <serialHandler.h>
 #include <boardState.h>
+
+#if ACTUATORS
 #include <iotActuators.h>
+#endif
 
 // add remove AT Commands here
 
@@ -15,7 +18,7 @@ void atCmdWifiPass(const String& args);
 void atCmdCarConfig(const String& args);
 void atCmdCarMove(const String& args);
 
-#if CAR_SERVO
+#if ACTUATORS
 void atCmdStepperConfig(const String& args);
 void atCmdServoConfig(const String& args);
 
@@ -62,7 +65,7 @@ AtCommand atCommands[] = {
 
     {"CAR", "Config Car control Pins, eg: AT+CAR=[MotorLeft+], [MotorLeft-], [MotorRight+], [MotorRight-]" , atCmdCarConfig, atReadCarConfig},
 
-#if CAR_SERVO    
+#if ACTUATORS    
     {"STEPPER", "Config Stepper Pin, AT+STEPPER=[STEPPER NUMBER], [STEPPER_PIN, DIR_PIN]" , atCmdStepperConfig, atReadStepperConfig},
     {"SERVO", "Config Stepper Pin, AT+SERVO=[STEPPER NUMBER], [STEPPER_PIN, DIR_PIN]" , atCmdServoConfig, atReadServoConfig},
     {"STP_ANGLE", "Move stepper 1 to angle N, AT+STP_ANGLE=1,[Angle]", atCmdStepperAngle, atReadStepperAngle},
@@ -231,7 +234,7 @@ void atReadConfig() {
     Serial.print("Stepper angle : \n");    
 }
 
-#if CAR_SERVO
+#if ACTUATORS
 
 void atCmdAngle(const String& params) {
     int angle = params.toInt();
