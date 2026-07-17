@@ -46,6 +46,7 @@ public:
             String prefix = input.substring(0, 4);  // Get the first four characters
             prefix.toUpperCase();   
 
+            
             if (!prefix.startsWith("AT")) {
                 Serial.println("ERROR: Commands must start with 'AT'");
                 return;

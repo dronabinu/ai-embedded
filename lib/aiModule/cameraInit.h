@@ -2,17 +2,10 @@
 #define CAMERA_INIT_H
 
 
-static const char *TAG = "camera_httpd";
-
 // #include "esp32-hal-ledc.h"
 #include "esp_camera.h"
 #include "esp_log.h"
-#include "esp_http_server.h"
 #include "camera_pins.h"
-
-
-
-
 
 
 // Enable LED FLASH setting
@@ -21,8 +14,7 @@ static const char *TAG = "camera_httpd";
 
 
 void initCamera();
-static esp_err_t stream_handler(httpd_req_t *req);
-esp_err_t options_handler(httpd_req_t *req);
+
 
 void initCamera(){
   camera_config_t config;
@@ -89,134 +81,10 @@ void initCamera(){
     s->set_framesize(s, FRAMESIZE_QVGA);
   }
 
+  // set clk for camera (esp32 node hw 818)
+  int res = s->set_xclk(s, LEDC_TIMER_0, 30);
 //   setupLedFlash(LED_GPIO_NUM);
 
-}
-
-
-httpd_handle_t camera_httpd = NULL;
-
-esp_err_t options_handler(httpd_req_t *req) {
-  httpd_resp_set_type(req, "multipart/x-mixed-replace; boundary=frame");
-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-  httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "*");
-  httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "*"); // Add any custom headers your client might send
-  httpd_resp_sendstr(req, ""); // Send an empty response for OPTIONS
-  return ESP_OK;
-}
-
-static esp_err_t stream_handler(httpd_req_t *req){
-    camera_fb_t * fb = NULL;
-    esp_err_t res = ESP_OK;
-    size_t _jpg_buf_len = 0;
-    uint8_t * _jpg_buf = NULL;
-    char part_buf[64];
-
-    // Add CORS header to allow all origins
-    // httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
-    // httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    // httpd_resp_set_status(req, "200");
-    // httpd_resp_sendstr_chunk(req, "\n");
-
-    // Add CORS header to allow all origins
-
-
-    // Set multipart HTTP response headers
-    res = httpd_resp_set_type(req, "multipart/x-mixed-replace; boundary=frame");
-    
-    if(res != ESP_OK) {
-        return res;
-    }
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); // Enable CORS
-    while(true){
-        fb = esp_camera_fb_get();
-        if (!fb) {
-            ESP_LOGE(TAG, "Camera capture failed");
-            res = ESP_FAIL;
-        } else {
-            _jpg_buf = fb->buf;
-            _jpg_buf_len = fb->len;
-
-            size_t hlen = snprintf(part_buf, 64, 
-                "--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n", (uint32_t)_jpg_buf_len);
-
-            // Send multipart frame header
-            res = httpd_resp_send_chunk(req, part_buf, hlen);
-            if(res == ESP_OK){
-                // Send JPEG frame
-                res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
-            }
-            if(res == ESP_OK){
-                // Send line break after frame
-                res = httpd_resp_send_chunk(req, "\r\n", 2);
-            }
-            esp_camera_fb_return(fb);
-            if(res != ESP_OK){
-                break;
-            }
-        }
-    }
-    return res;
-}
-
-static esp_err_t index_handler(httpd_req_t *req){
-    const char* html = "<html><body><h1>ESP32-CAM Stream</h1><img src=\"/stream\"/></body></html>";
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, html, strlen(html));
-    return ESP_OK;
-}
-
-
-static esp_err_t hello_handler(httpd_req_t *req){
-    const char* html = "<html><body><h1>Hello World</h1></body></html>";
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, html, strlen(html));
-    return ESP_OK;
-}
-
-
-static httpd_handle_t start_camera_server(){
-    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.server_port = 80;
-
-    httpd_handle_t server = NULL;
-    if (httpd_start(&server, &config) == ESP_OK){
-        httpd_uri_t index_uri = {
-            .uri = "/",
-            .method = HTTP_GET,
-            .handler = index_handler,
-            .user_ctx = NULL
-        };
-        httpd_register_uri_handler(server, &index_uri);
-
-        httpd_uri_t hello_uri = {
-            .uri = "/hello",
-            .method = HTTP_GET,
-            .handler = hello_handler,
-            .user_ctx = NULL
-        };
-        httpd_register_uri_handler(server, &hello_uri);
-
-        httpd_uri_t stream_uri = {
-            .uri = "/stream",
-            .method = HTTP_GET,
-            .handler = stream_handler,
-            .user_ctx = NULL
-        };
-        httpd_register_uri_handler(server, &stream_uri);
-
-        httpd_uri_t options_uri = {
-            .uri = "/stream", // Or the specific URI your client targets
-            .method = HTTP_OPTIONS,
-            .handler = options_handler,
-            .user_ctx = NULL
-        };
-        httpd_register_uri_handler(server, &options_uri);
-
-        
-    }
-
-    return server;
 }
 
 

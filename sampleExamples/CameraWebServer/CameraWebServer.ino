@@ -9,6 +9,7 @@
 // ===========================
 const char *ssid = "golgoppa";
 const char *password = "treRAG$12zzz";
+// the above is for an internal sandboxed wifi
 
 // DFROBOT ESP32S3 Dev Module
 
